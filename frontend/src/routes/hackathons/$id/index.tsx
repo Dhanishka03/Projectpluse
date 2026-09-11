@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, ChevronRight } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
-import { ClaimsMeter, IssueCount, RelevancePill, StatusBadge } from "@/components/verifier/pills";
+import { ClaimsBar, IssueCount, RelevanceBar, StatusBadge } from "@/components/verifier/pills";
 import { getHackathon, getSubmissions, problemStatementTitle } from "@/lib/mock-data";
 import type { Submission } from "@/lib/types";
 import {
@@ -280,11 +280,11 @@ function Row({
         {s.status === "failed" ? (
           <span className="font-mono text-xs text-muted-foreground">—</span>
         ) : (
-          <RelevancePill score={s.relevanceScore} />
+          <RelevanceBar score={s.relevanceScore} />
         )}
       </td>
       <td className="px-3 py-2">
-        <ClaimsMeter verified={s.claimsVerifiedCount} total={s.claimsTotalCount} />
+        <ClaimsBar verified={s.claimsVerifiedCount} total={s.claimsTotalCount} />
       </td>
       <td className="px-3 py-2">
         <IssueCount count={s.issuesCount} />

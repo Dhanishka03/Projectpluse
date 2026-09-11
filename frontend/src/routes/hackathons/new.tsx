@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload, Link as LinkIcon } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,30 +29,66 @@ export const Route = createFileRoute("/hackathons/new")({
   component: NewHackathon,
 });
 
-interface ParsedRows {
+interface ParsedRow {
+  id: string;
+  team: string;
+  problem: string;
+  github: string;
+}
+
+interface ParsedResult {
+  rows: ParsedRow[];
   total: number;
   validUrls: number;
   missing: number;
 }
 
-function parseRows(raw: string): ParsedRows | null {
+const GITHUB_RE = /^https?:\/\/(www\.)?github\.com\/[^/]+\/[^/]+/;
+
+function parseRows(raw: string): ParsedResult | null {
   const lines = raw
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
     .filter((l) => !/^id\s*,/i.test(l));
   if (lines.length === 0) return null;
+
+  const rows: ParsedRow[] = [];
   let validUrls = 0;
+
   for (const line of lines) {
     const cols = line.split(",").map((c) => c.trim());
     const url = cols[3] ?? "";
-    if (/^https?:\/\/(www\.)?github\.com\/[^/]+\/[^/]+/.test(url)) validUrls++;
+    if (GITHUB_RE.test(url)) validUrls++;
+    rows.push({
+      id: cols[0] ?? "",
+      team: cols[1] ?? "",
+      problem: cols[2] ?? "",
+      github: url,
+    });
   }
+
   return {
+    rows,
     total: lines.length,
     validUrls,
     missing: lines.length - validUrls,
   };
+}
+
+/** Generate mock CSV rows from a Google Sheet URL (simulated). */
+function mockSheetImport(): string {
+  return [
+    "id, teamname, problem statement, github link",
+    "1, Team Alpha, Automating Repetitive Tasks, https://github.com/team-alpha/task-manager",
+    "2, Team Nova, Automating Repetitive Tasks, https://github.com/team-nova/inbox-triage",
+    "3, Team Vertex, Accessible Public Data, https://github.com/team-vertex/permit-explorer",
+    "4, Team Halcyon, Accessible Public Data, https://github.com/team-halcyon/budget-lens",
+    "5, Team Quanta, Developer Productivity, https://github.com/team-quanta/pr-context",
+    "6, Team Orbit, Developer Productivity, https://github.com/team-orbit/snippet-vault",
+    "7, Team Pinecone, Automating Repetitive Tasks, https://github.com/team-pinecone/standup-recap",
+    "8, Team Marrow, Developer Productivity, https://github.com/team-marrow/docs-drift",
+  ].join("\n");
 }
 
 function NewHackathon() {
@@ -68,6 +104,8 @@ function NewHackathon() {
   const [end, setEnd] = useState("");
   const [statements, setStatements] = useState([{ title: "", description: "" }]);
   const [rows, setRows] = useState("");
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetImported, setSheetImported] = useState(false);
 
   const parsed = useMemo(() => parseRows(rows), [rows]);
   const canSubmit = name.trim() !== "" && (parsed?.validUrls ?? 0) > 0;
@@ -78,7 +116,16 @@ function NewHackathon() {
 
   async function handleFile(file: File) {
     setRows(await file.text());
+    setSheetImported(false);
   }
+
+  function handleSheetImport() {
+    if (!sheetUrl.trim()) return;
+    setRows(mockSheetImport());
+    setSheetImported(true);
+  }
+
+  const previewRows = parsed?.rows.slice(0, 5) ?? [];
 
   return (
     <AppShell>
@@ -165,9 +212,16 @@ function NewHackathon() {
           </button>
         </div>
 
+        {/* ---------- Submissions upload ---------- */}
         <div className="space-y-3">
-          <Label htmlFor="rows">Submissions</Label>
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-card px-4 py-8 text-center transition-colors hover:border-ring/60">
+          <Label>Submissions</Label>
+
+          {/* CSV file upload */}
+          <label
+            id="csv-dropzone"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-card px-4 py-8 text-center transition-colors hover:border-ring/60"
+          >
+            <Upload className="mb-2 size-5 text-muted-foreground" />
             <span className="text-sm">Drop a CSV here or click to upload</span>
             <span className="mt-1 font-mono text-[11px] text-muted-foreground">
               id, teamname, problem statement, github link
@@ -182,15 +236,96 @@ function NewHackathon() {
               }}
             />
           </label>
+
+          {/* Separator */}
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">or</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          {/* Google Sheet URL */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <LinkIcon className="size-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Import from Google Sheet</span>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                id="sheet-url"
+                value={sheetUrl}
+                onChange={(e) => {
+                  setSheetUrl(e.target.value);
+                  setSheetImported(false);
+                }}
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                className="font-mono text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!sheetUrl.trim()}
+                onClick={handleSheetImport}
+              >
+                Import
+              </Button>
+            </div>
+            {sheetImported && (
+              <p className="text-xs text-ok">✓ Sheet imported successfully</p>
+            )}
+          </div>
+
+          {/* Raw paste area */}
           <Textarea
             id="rows"
             rows={5}
             value={rows}
-            onChange={(e) => setRows(e.target.value)}
+            onChange={(e) => {
+              setRows(e.target.value);
+              setSheetImported(false);
+            }}
             placeholder="…or paste rows here"
             className="font-mono text-xs"
           />
 
+          {/* Preview table */}
+          {parsed && previewRows.length > 0 && (
+            <div className="overflow-hidden rounded-md border border-border bg-card">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">ID</th>
+                    <th className="px-3 py-2 font-medium">Team Name</th>
+                    <th className="px-3 py-2 font-medium">Problem Statement</th>
+                    <th className="px-3 py-2 font-medium">GitHub Link</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.map((row, i) => (
+                    <tr
+                      key={i}
+                      className="border-b border-border/70 last:border-0 text-xs"
+                    >
+                      <td className="px-3 py-1.5 font-mono tabular-nums">{row.id}</td>
+                      <td className="px-3 py-1.5">{row.team}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{row.problem}</td>
+                      <td className="px-3 py-1.5 font-mono text-primary truncate max-w-48">
+                        {row.github || <span className="text-muted-foreground">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {parsed.total > 5 && (
+                <div className="border-t border-border/70 px-3 py-1.5 text-[11px] text-muted-foreground">
+                  Showing 5 of {parsed.total} rows
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Validation summary */}
           {parsed && (
             <div className="rounded-md border border-border bg-card px-3 py-2.5 font-mono text-xs">
               <div className="text-ok">✓ {parsed.total} rows parsed</div>

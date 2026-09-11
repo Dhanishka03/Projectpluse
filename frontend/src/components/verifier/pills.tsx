@@ -1,24 +1,88 @@
 import { cn } from "@/lib/utils";
 import type { Claim, Submission } from "@/lib/types";
 
-export function RelevancePill({ score }: { score: number }) {
-  const tone =
-    score >= 80
-      ? "bg-ok-soft text-ok"
-      : score >= 50
-        ? "bg-warn-soft text-warn"
-        : "bg-bad-soft text-bad";
+/* ---------- Relevance score (bar + percentage) ---------- */
+
+function relevanceTone(score: number) {
+  if (score >= 80) return { fill: "bg-ok", text: "text-ok" };
+  if (score >= 50) return { fill: "bg-warn", text: "text-warn" };
+  return { fill: "bg-bad", text: "text-bad" };
+}
+
+/** Compact relevance bar for table rows. */
+export function RelevanceBar({ score }: { score: number }) {
+  const { fill, text } = relevanceTone(score);
   return (
-    <span
-      className={cn(
-        "inline-flex min-w-11 justify-center rounded px-1.5 py-0.5 font-mono text-xs tabular-nums",
-        tone,
-      )}
-    >
-      {score}
+    <span className="inline-flex items-center gap-2">
+      <span className="relative h-1.5 w-20 overflow-hidden rounded-full bg-border">
+        <span
+          className={cn("absolute inset-y-0 left-0 rounded-full transition-all", fill)}
+          style={{ width: `${score}%` }}
+        />
+      </span>
+      <span className={cn("font-mono text-xs tabular-nums", text)}>{score}%</span>
     </span>
   );
 }
+
+/** Larger relevance bar for the submission detail header. */
+export function RelevanceBarLarge({ score }: { score: number }) {
+  const { fill, text } = relevanceTone(score);
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <span className="relative h-2 w-32 overflow-hidden rounded-full bg-border">
+        <span
+          className={cn("absolute inset-y-0 left-0 rounded-full transition-all", fill)}
+          style={{ width: `${score}%` }}
+        />
+      </span>
+      <span className={cn("font-mono text-sm tabular-nums font-medium", text)}>{score}%</span>
+    </span>
+  );
+}
+
+/* ---------- Claims verified (bar + fraction) ---------- */
+
+/** Compact claims bar for table rows. */
+export function ClaimsBar({ verified, total }: { verified: number; total: number }) {
+  if (total === 0) return <span className="font-mono text-xs text-muted-foreground">—</span>;
+  const pct = Math.round((verified / total) * 100);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="relative h-1.5 w-20 overflow-hidden rounded-full bg-border">
+        <span
+          className="absolute inset-y-0 left-0 rounded-full bg-ok transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        {verified}/{total}
+      </span>
+    </span>
+  );
+}
+
+/** Larger claims bar for the submission detail header. */
+export function ClaimsBarLarge({ verified, total }: { verified: number; total: number }) {
+  if (total === 0) return <span className="font-mono text-xs text-muted-foreground">—</span>;
+  const pct = Math.round((verified / total) * 100);
+  return (
+    <div className="space-y-1">
+      <span className="font-mono text-sm tabular-nums">
+        {verified}/{total}{" "}
+        <span className="text-xs text-muted-foreground">({pct}%)</span>
+      </span>
+      <span className="relative block h-2 w-32 overflow-hidden rounded-full bg-border">
+        <span
+          className="absolute inset-y-0 left-0 rounded-full bg-ok transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+    </div>
+  );
+}
+
+/* ---------- Status badge ---------- */
 
 export function StatusBadge({ status }: { status: Submission["status"] }) {
   const map = {
@@ -33,6 +97,8 @@ export function StatusBadge({ status }: { status: Submission["status"] }) {
     </span>
   );
 }
+
+/* ---------- Issue count ---------- */
 
 export function IssueCount({ count }: { count: number }) {
   return (
@@ -51,24 +117,7 @@ export function IssueCount({ count }: { count: number }) {
   );
 }
 
-export function ClaimsMeter({ verified, total }: { verified: number; total: number }) {
-  if (total === 0) return <span className="font-mono text-xs text-muted-foreground">—</span>;
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className="font-mono text-xs tabular-nums">
-        {verified}/{total}
-      </span>
-      <span className="flex gap-0.5" aria-hidden>
-        {Array.from({ length: total }).map((_, i) => (
-          <span
-            key={i}
-            className={cn("size-1.5 rounded-full", i < verified ? "bg-ok" : "bg-border")}
-          />
-        ))}
-      </span>
-    </span>
-  );
-}
+/* ---------- Claim status mark ---------- */
 
 export function ClaimStatusMark({ status }: { status: Claim["status"] }) {
   const map = {

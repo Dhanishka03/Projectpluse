@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { CheckCircle2, ChevronDown, ExternalLink } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
-import { ClaimStatusMark, claimStatusLabel, RelevancePill } from "@/components/verifier/pills";
+import { ClaimStatusMark, claimStatusLabel, ClaimsBarLarge, RelevanceBarLarge } from "@/components/verifier/pills";
 import { getHackathon, getSubmission, problemStatementTitle } from "@/lib/mock-data";
 import type { Claim, Submission } from "@/lib/types";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
@@ -65,16 +65,6 @@ function Detail() {
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const verifiedRatio = `${submission.claimsVerifiedCount}/${submission.claimsTotalCount}`;
-  const confidence =
-    submission.claimsTotalCount === 0
-      ? "—"
-      : submission.claimsVerifiedCount / submission.claimsTotalCount >= 0.8
-        ? "HIGH"
-        : submission.claimsVerifiedCount / submission.claimsTotalCount >= 0.5
-          ? "MEDIUM"
-          : "LOW";
-
   return (
     <AppShell>
       <Crumbs
@@ -106,10 +96,6 @@ function Detail() {
               <ExternalLink className="size-3" />
             </a>
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Checkbox checked={reviewed} onCheckedChange={(v) => setReviewed(v === true)} />
-            Mark as reviewed
-          </label>
         </div>
 
         <dl className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-3">
@@ -119,19 +105,36 @@ function Detail() {
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Relevance</dt>
-            <dd className="mt-1 flex items-center gap-2 text-sm">
-              <RelevancePill score={submission.relevanceScore} />
-              <span className="font-mono text-xs text-muted-foreground">/100</span>
+            <dd className="mt-1">
+              <RelevanceBarLarge score={submission.relevanceScore} />
             </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Overall verification</dt>
-            <dd className="mt-1 font-mono text-sm tabular-nums">
-              {verifiedRatio} <span className="text-xs text-muted-foreground">({confidence})</span>
+            <dd className="mt-1">
+              <ClaimsBarLarge
+                verified={submission.claimsVerifiedCount}
+                total={submission.claimsTotalCount}
+              />
             </dd>
           </div>
         </dl>
       </header>
+
+      {/* Mark as Reviewed — primary organizer action */}
+      <Button
+        id="mark-reviewed-button"
+        variant={reviewed ? "outline" : "default"}
+        size="lg"
+        className={cn(
+          "mt-4 w-full text-sm font-medium",
+          reviewed && "border-ok/30 text-ok hover:bg-ok-soft/50",
+        )}
+        onClick={() => setReviewed(!reviewed)}
+      >
+        <CheckCircle2 className="mr-2 size-4" />
+        {reviewed ? "Reviewed ✓" : "Mark as Reviewed"}
+      </Button>
 
       {submission.status === "failed" && (
         <div className="mt-4 rounded-md border border-border bg-bad-soft px-4 py-3 text-sm text-bad">
