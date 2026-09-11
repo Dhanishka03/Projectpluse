@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AuthProvider } from "../lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -77,17 +78,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Projectpluse — Hackathon Submission Verification" },
+      { title: "Projectpluse — Verify Hackathon Claims with Evidence" },
       {
         name: "description",
         content:
-          "Verify hackathon submissions by comparing README claims with evidence found in the actual GitHub repository.",
+          "Projectpluse helps hackathon organizers verify whether project claims are supported by real GitHub implementation evidence.",
       },
-      { property: "og:title", content: "Projectpluse" },
+      { property: "og:title", content: "Projectpluse — Verify Hackathon Claims with Evidence" },
       {
         property: "og:description",
-        content:
-          "AI-powered hackathon submission verification. Evidence-backed, claim by claim.",
+        content: "AI-powered hackathon submission verification. Evidence-backed, claim by claim.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -135,8 +135,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AuthProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

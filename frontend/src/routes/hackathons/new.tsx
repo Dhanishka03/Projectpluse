@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { hackathons } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/hackathons/new")({
   head: () => ({
@@ -55,7 +56,13 @@ function parseRows(raw: string): ParsedRows | null {
 }
 
 function NewHackathon() {
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) navigate({ to: "/login" });
+  }, [user, navigate]);
+
   const [name, setName] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -66,9 +73,7 @@ function NewHackathon() {
   const canSubmit = name.trim() !== "" && (parsed?.validUrls ?? 0) > 0;
 
   function updateStatement(i: number, key: "title" | "description", v: string) {
-    setStatements((s) =>
-      s.map((item, idx) => (idx === i ? { ...item, [key]: v } : item)),
-    );
+    setStatements((s) => s.map((item, idx) => (idx === i ? { ...item, [key]: v } : item)));
   }
 
   async function handleFile(file: File) {
@@ -77,7 +82,7 @@ function NewHackathon() {
 
   return (
     <AppShell>
-      <Crumbs items={[{ label: "Hackathons", to: "/" }, { label: "New" }]} />
+      <Crumbs items={[{ label: "Hackathons", to: "/hackathons" }, { label: "New" }]} />
       <h1 className="text-xl font-semibold tracking-tight">New hackathon</h1>
 
       <form
@@ -124,10 +129,7 @@ function NewHackathon() {
         <div className="space-y-3">
           <Label>Problem statements</Label>
           {statements.map((s, i) => (
-            <div
-              key={i}
-              className="space-y-2 rounded-md border border-border bg-card p-3"
-            >
+            <div key={i} className="space-y-2 rounded-md border border-border bg-card p-3">
               <div className="flex items-center gap-2">
                 <Input
                   value={s.title}
@@ -139,11 +141,7 @@ function NewHackathon() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() =>
-                      setStatements((list) =>
-                        list.filter((_, idx) => idx !== i),
-                      )
-                    }
+                    onClick={() => setStatements((list) => list.filter((_, idx) => idx !== i))}
                     aria-label="Remove problem statement"
                   >
                     <Trash2 className="size-4" />
@@ -154,17 +152,13 @@ function NewHackathon() {
                 value={s.description}
                 rows={2}
                 placeholder="Description"
-                onChange={(e) =>
-                  updateStatement(i, "description", e.target.value)
-                }
+                onChange={(e) => updateStatement(i, "description", e.target.value)}
               />
             </div>
           ))}
           <button
             type="button"
-            onClick={() =>
-              setStatements((s) => [...s, { title: "", description: "" }])
-            }
+            onClick={() => setStatements((s) => [...s, { title: "", description: "" }])}
             className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
           >
             <Plus className="size-3.5" /> Add another problem statement
@@ -200,13 +194,11 @@ function NewHackathon() {
           {parsed && (
             <div className="rounded-md border border-border bg-card px-3 py-2.5 font-mono text-xs">
               <div className="text-ok">✓ {parsed.total} rows parsed</div>
-              <div className="text-ok">
-                ✓ {parsed.validUrls} valid GitHub URLs
-              </div>
+              <div className="text-ok">✓ {parsed.validUrls} valid GitHub URLs</div>
               {parsed.missing > 0 && (
                 <div className="text-warn">
-                  ⚠ {parsed.missing} row{parsed.missing > 1 ? "s" : ""} missing a
-                  GitHub link — will be skipped
+                  ⚠ {parsed.missing} row{parsed.missing > 1 ? "s" : ""} missing a GitHub link — will
+                  be skipped
                 </div>
               )}
             </div>

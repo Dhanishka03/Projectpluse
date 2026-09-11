@@ -10,7 +10,7 @@
 
 Build a web app for hackathon organizers to review GitHub-based hackathon submissions.
 
-The core idea: instead of trusting a README, the app shows what a team *claimed* to build next to what evidence was actually found in their code, so organizers can verify submissions quickly across a large batch.
+The core idea: instead of trusting a README, the app shows what a team _claimed_ to build next to what evidence was actually found in their code, so organizers can verify submissions quickly across a large batch.
 
 **Tone:** calm, evidence-driven, and professional — like a code review tool or an audit dashboard, not a gamified leaderboard. Think Linear or Vercel's dashboard aesthetic: clean, data-dense but not cluttered, confident use of whitespace, no unnecessary decoration.
 
@@ -18,14 +18,14 @@ The core idea: instead of trusting a README, the app shows what a team *claimed*
 
 ## 2. Pages / Routes
 
-| Route | Purpose | Priority |
-|---|---|---|
-| `/` | Landing / hackathon list | P1 |
-| `/hackathons/new` | Create a hackathon (name, dates, problem statement, upload submissions) | P1 |
-| `/hackathons/:id` | Dashboard — overview stats + submission table | P1 |
-| `/hackathons/:id/submissions/:submissionId` | Detail page — claims, evidence, verification | P1 |
-| `/hackathons/:id/analyzing` | Progress screen shown while analysis runs | P2 |
-| `/hackathons/:id/settings` | Edit problem statements, re-run analysis | P3 |
+| Route                                       | Purpose                                                                 | Priority |
+| ------------------------------------------- | ----------------------------------------------------------------------- | -------- |
+| `/`                                         | Landing / hackathon list                                                | P1       |
+| `/hackathons/new`                           | Create a hackathon (name, dates, problem statement, upload submissions) | P1       |
+| `/hackathons/:id`                           | Dashboard — overview stats + submission table                           | P1       |
+| `/hackathons/:id/submissions/:submissionId` | Detail page — claims, evidence, verification                            | P1       |
+| `/hackathons/:id/analyzing`                 | Progress screen shown while analysis runs                               | P2       |
+| `/hackathons/:id/settings`                  | Edit problem statements, re-run analysis                                | P3       |
 
 ---
 
@@ -48,6 +48,7 @@ A short linear form (one scrollable page for MVP):
 5. Submit button: "Validate & Continue" → runs client-side validation before allowing submission.
 
 **Validation feedback (shown inline, not in a modal):**
+
 ```
 ✓ 42 rows parsed
 ✓ 40 valid GitHub URLs
@@ -64,14 +65,15 @@ A short linear form (one scrollable page for MVP):
 ### 3.4 `/hackathons/:id` — Organizer Dashboard
 
 **Top stat bar** (4 stat cards, horizontal row):
+
 ```
 [ 42 Submissions ]  [ 38 Analyzed ]  [ 3 Need Review ]  [ 1 Failed ]
 ```
 
 **Submission table columns:**
 
-| # | Team | Problem Statement | Relevance | Claims Verified | Issues | Status | → |
-|---|---|---|---|---|---|---|---|
+| #   | Team | Problem Statement | Relevance | Claims Verified | Issues | Status | →   |
+| --- | ---- | ----------------- | --------- | --------------- | ------ | ------ | --- |
 
 - `Relevance`: colored pill (green ≥80, amber 50–79, red <50).
 - `Claims Verified`: `8/10` with a small dot cluster (●●●●●●●●○○).
@@ -87,6 +89,7 @@ A short linear form (one scrollable page for MVP):
 This is where the actual product value is shown. Structure top to bottom:
 
 **Header block:**
+
 ```
 TEAM ALPHA
 AI Task Manager
@@ -125,6 +128,7 @@ FINDING:
 - Evidence file paths are monospace links → open GitHub file in new tab (`github.com/.../blob/main/{path}#L{line}`)
 
 **Issues summary panel** (above claims list):
+
 ```
 2 Issues Found
 
@@ -244,14 +248,14 @@ The frontend is designed to replace mock data with real API calls once the FastA
 
 Expected API surface (not yet implemented):
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /hackathons` | List all hackathons |
-| `POST /hackathons` | Create a hackathon |
-| `GET /hackathons/:id` | Get hackathon + stats |
-| `GET /hackathons/:id/submissions` | List submissions |
-| `GET /hackathons/:id/submissions/:submissionId` | Get submission detail |
-| `POST /hackathons/:id/analyze` | Trigger analysis job |
-| `GET /hackathons/:id/analysis-status` | Poll analysis progress |
+| Endpoint                                        | Purpose                |
+| ----------------------------------------------- | ---------------------- |
+| `GET /hackathons`                               | List all hackathons    |
+| `POST /hackathons`                              | Create a hackathon     |
+| `GET /hackathons/:id`                           | Get hackathon + stats  |
+| `GET /hackathons/:id/submissions`               | List submissions       |
+| `GET /hackathons/:id/submissions/:submissionId` | Get submission detail  |
+| `POST /hackathons/:id/analyze`                  | Trigger analysis job   |
+| `GET /hackathons/:id/analysis-status`           | Poll analysis progress |
 
 All state management should assume eventual async API calls (React Query is already set up).

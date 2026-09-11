@@ -28,12 +28,7 @@ export function StatusBadge({ status }: { status: Submission["status"] }) {
   } as const;
   const [label, tone] = map[status];
   return (
-    <span
-      className={cn(
-        "inline-flex rounded px-1.5 py-0.5 text-xs font-medium",
-        tone,
-      )}
-    >
+    <span className={cn("inline-flex rounded px-1.5 py-0.5 text-xs font-medium", tone)}>
       {label}
     </span>
   );
@@ -56,15 +51,8 @@ export function IssueCount({ count }: { count: number }) {
   );
 }
 
-export function ClaimsMeter({
-  verified,
-  total,
-}: {
-  verified: number;
-  total: number;
-}) {
-  if (total === 0)
-    return <span className="font-mono text-xs text-muted-foreground">—</span>;
+export function ClaimsMeter({ verified, total }: { verified: number; total: number }) {
+  if (total === 0) return <span className="font-mono text-xs text-muted-foreground">—</span>;
   return (
     <span className="inline-flex items-center gap-2">
       <span className="font-mono text-xs tabular-nums">
@@ -74,10 +62,7 @@ export function ClaimsMeter({
         {Array.from({ length: total }).map((_, i) => (
           <span
             key={i}
-            className={cn(
-              "size-1.5 rounded-full",
-              i < verified ? "bg-ok" : "bg-border",
-            )}
+            className={cn("size-1.5 rounded-full", i < verified ? "bg-ok" : "bg-border")}
           />
         ))}
       </span>
@@ -92,9 +77,7 @@ export function ClaimStatusMark({ status }: { status: Claim["status"] }) {
     not_found: ["✗", "text-muted-foreground"],
   } as const;
   const [glyph, tone] = map[status];
-  return (
-    <span className={cn("font-mono text-sm leading-none", tone)}>{glyph}</span>
-  );
+  return <span className={cn("font-mono text-sm leading-none", tone)}>{glyph}</span>;
 }
 
 export function claimStatusLabel(status: Claim["status"]) {

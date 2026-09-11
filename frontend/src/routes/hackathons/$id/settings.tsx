@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { getHackathon } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/hackathons/$id/settings")({
   head: () => ({
@@ -12,14 +14,12 @@ export const Route = createFileRoute("/hackathons/$id/settings")({
       { title: "Hackathon Settings — Projectpluse" },
       {
         name: "description",
-        content:
-          "Edit problem statements and re-run the analysis for this hackathon.",
+        content: "Edit problem statements and re-run the analysis for this hackathon.",
       },
       { property: "og:title", content: "Hackathon Settings — Projectpluse" },
       {
         property: "og:description",
-        content:
-          "Edit problem statements and re-run the analysis for this hackathon.",
+        content: "Edit problem statements and re-run the analysis for this hackathon.",
       },
     ],
   }),
@@ -27,14 +27,23 @@ export const Route = createFileRoute("/hackathons/$id/settings")({
 });
 
 function Settings() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { id } = Route.useParams();
+
+  useEffect(() => {
+    if (!user) navigate({ to: "/login" });
+  }, [user, navigate]);
+
+  if (!user) return null;
+
   const hackathon = getHackathon(id);
 
   return (
     <AppShell>
       <Crumbs
         items={[
-          { label: "Hackathons", to: "/" },
+          { label: "Hackathons", to: "/hackathons" },
           {
             label: hackathon?.name ?? "Hackathon",
             to: "/hackathons/$id",
@@ -47,10 +56,7 @@ function Settings() {
 
       <div className="mt-6 max-w-2xl space-y-5">
         {hackathon?.problemStatements.map((p) => (
-          <div
-            key={p.id}
-            className="space-y-2 rounded-md border border-border bg-card p-4"
-          >
+          <div key={p.id} className="space-y-2 rounded-md border border-border bg-card p-4">
             <Label className="text-xs">Title</Label>
             <Input defaultValue={p.title} />
             <Label className="text-xs">Description</Label>

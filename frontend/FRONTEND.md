@@ -10,7 +10,7 @@
 ## 1. One-Paragraph Brief (paste this first)
 
 Build a web app for hackathon organizers to review GitHub-based hackathon submissions.
-The core idea: instead of trusting a README, the app shows what a team *claimed* to
+The core idea: instead of trusting a README, the app shows what a team _claimed_ to
 build next to what evidence was actually found in their code, so organizers can verify
 submissions quickly across a large batch. The tone is **calm, evidence-driven, and
 professional** — like a code review tool or an audit dashboard, not a gamified leaderboard.
@@ -21,14 +21,14 @@ confident use of whitespace, no unnecessary decoration.
 
 ## 2. Pages / Routes
 
-| Route | Purpose | Priority |
-|---|---|---|
-| `/` | Landing / hackathon list | P1 |
-| `/hackathons/new` | Create a hackathon (name, dates, problem statement, upload submissions) | P1 |
-| `/hackathons/:id` | Dashboard — overview stats + submission table | P1 |
-| `/hackathons/:id/submissions/:submissionId` | Detail page — claims, evidence, verification | P1 |
-| `/hackathons/:id/analyzing` | Progress screen shown while analysis runs | P2 |
-| `/hackathons/:id/settings` | Edit problem statements, re-run analysis | P3 |
+| Route                                       | Purpose                                                                 | Priority |
+| ------------------------------------------- | ----------------------------------------------------------------------- | -------- |
+| `/`                                         | Landing / hackathon list                                                | P1       |
+| `/hackathons/new`                           | Create a hackathon (name, dates, problem statement, upload submissions) | P1       |
+| `/hackathons/:id`                           | Dashboard — overview stats + submission table                           | P1       |
+| `/hackathons/:id/submissions/:submissionId` | Detail page — claims, evidence, verification                            | P1       |
+| `/hackathons/:id/analyzing`                 | Progress screen shown while analysis runs                               | P2       |
+| `/hackathons/:id/settings`                  | Edit problem statements, re-run analysis                                | P3       |
 
 Build P1 pages fully first. P2/P3 can be stubs or skipped in the first pass.
 
@@ -53,11 +53,13 @@ A short linear form (not a wizard with progress steps — keep it to one scrolla
 5. Submit button: "Validate & Continue" → runs client-side validation (see 3.2.1) before allowing submission.
 
 **3.2.1 Validation feedback (show inline, not just on submit):**
+
 ```
 ✓ 42 rows parsed
 ✓ 40 valid GitHub URLs
 ⚠ 2 rows missing a GitHub link — will be skipped
 ```
+
 Style this as a small inline summary card, not a modal or toast — the organizer should see it while still looking at the form.
 
 ### 3.3 `/hackathons/:id/analyzing` — Progress Screen
@@ -70,6 +72,7 @@ Style this as a small inline summary card, not a modal or toast — the organize
 ### 3.4 `/hackathons/:id` — Organizer Dashboard (the main screen)
 
 **Top stat bar** (4 stat cards, horizontal row):
+
 ```
 [ 42 Submissions ]  [ 38 Analyzed ]  [ 3 Need Review ]  [ 1 Failed ]
 ```
@@ -78,8 +81,8 @@ Style this as a small inline summary card, not a modal or toast — the organize
 
 **Submission table** — this is the core UI element. Columns:
 
-| Rank | Team | Problem Statement | Relevance | Claims Verified | Issues | Status | ↳ |
-|---|---|---|---|---|---|---|---|
+| Rank | Team | Problem Statement | Relevance | Claims Verified | Issues | Status | ↳   |
+| ---- | ---- | ----------------- | --------- | --------------- | ------ | ------ | --- |
 
 - `Relevance`: numeric score styled as a small colored pill (green ≥80, amber 50–79, red <50) — not a raw number alone, the color should carry meaning at a glance.
 - `Claims Verified`: shown as `8/10` with a tiny inline progress bar or dot cluster (●●●●●●●●○○).
@@ -94,6 +97,7 @@ Style this as a small inline summary card, not a modal or toast — the organize
 This is where the actual product value is shown. Structure top to bottom:
 
 **Header block:**
+
 ```
 TEAM ALPHA
 AI Task Manager
@@ -132,6 +136,7 @@ FINDING:
 - Each evidence line with a file path should be a link-styled mono-font element (visually distinct from prose) — clicking it can open the file on GitHub in a new tab (`github.com/.../blob/main/{path}#L{line}`).
 
 **Issues summary panel** (sits either above or beside the claims list, your call — above is simpler):
+
 ```
 2 Issues Found
 
@@ -142,6 +147,7 @@ FINDING:
 ⚠ CLAIM NOT VERIFIED — "Voice interaction"
    No relevant voice-processing implementation was found.
 ```
+
 Each issue should scroll/jump to its corresponding claim when clicked.
 
 **No judge-override controls for the MVP** — this is a read-only evidence view. If you want a stretch feature, add a simple "Mark as Reviewed" checkbox per submission, nothing more elaborate.

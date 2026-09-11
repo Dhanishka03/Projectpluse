@@ -1,33 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
-import {
-  ClaimStatusMark,
-  claimStatusLabel,
-  RelevancePill,
-} from "@/components/verifier/pills";
+import { ClaimStatusMark, claimStatusLabel, RelevancePill } from "@/components/verifier/pills";
 import { getHackathon, getSubmission, problemStatementTitle } from "@/lib/mock-data";
 import type { Claim, Submission } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute(
-  "/hackathons/$id/submissions/$submissionId",
-)({
+export const Route = createFileRoute("/hackathons/$id/submissions/$submissionId")({
   head: () => ({
     meta: [
       { title: "Submission Evidence — Projectpluse" },
       {
         name: "description",
-        content:
-          "Every claim in a submission's README next to the code evidence found for it.",
+        content: "Every claim in a submission's README next to the code evidence found for it.",
       },
       { property: "og:title", content: "Submission Evidence — Projectpluse" },
       {
         property: "og:description",
-        content:
-          "Every claim in a submission's README next to the code evidence found for it.",
+        content: "Every claim in a submission's README next to the code evidence found for it.",
       },
     ],
   }),
@@ -39,7 +32,16 @@ function fileUrl(repo: string, file: string, line?: number) {
 }
 
 function Detail() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { id, submissionId } = Route.useParams();
+
+  useEffect(() => {
+    if (!user) navigate({ to: "/login" });
+  }, [user, navigate]);
+
+  if (!user) return null;
+
   const hackathon = getHackathon(id);
   const submission = getSubmission(submissionId);
   const [open, setOpen] = useState<string[]>([]);
@@ -77,7 +79,7 @@ function Detail() {
     <AppShell>
       <Crumbs
         items={[
-          { label: "Hackathons", to: "/" },
+          { label: "Hackathons", to: "/hackathons" },
           {
             label: hackathon?.name ?? "Hackathon",
             to: "/hackathons/$id",
@@ -93,9 +95,7 @@ function Detail() {
             <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
               {submission.teamName}
             </div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight">
-              {submission.projectName}
-            </h1>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight">{submission.projectName}</h1>
             <a
               href={submission.githubUrl}
               target="_blank"
@@ -107,10 +107,7 @@ function Detail() {
             </a>
           </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Checkbox
-              checked={reviewed}
-              onCheckedChange={(v) => setReviewed(v === true)}
-            />
+            <Checkbox checked={reviewed} onCheckedChange={(v) => setReviewed(v === true)} />
             Mark as reviewed
           </label>
         </div>
@@ -118,28 +115,19 @@ function Detail() {
         <dl className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-3">
           <div>
             <dt className="text-xs text-muted-foreground">Problem statement</dt>
-            <dd className="mt-1 text-sm">
-              {problemStatementTitle(submission.problemStatementId)}
-            </dd>
+            <dd className="mt-1 text-sm">{problemStatementTitle(submission.problemStatementId)}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Relevance</dt>
             <dd className="mt-1 flex items-center gap-2 text-sm">
               <RelevancePill score={submission.relevanceScore} />
-              <span className="font-mono text-xs text-muted-foreground">
-                /100
-              </span>
+              <span className="font-mono text-xs text-muted-foreground">/100</span>
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">
-              Overall verification
-            </dt>
+            <dt className="text-xs text-muted-foreground">Overall verification</dt>
             <dd className="mt-1 font-mono text-sm tabular-nums">
-              {verifiedRatio}{" "}
-              <span className="text-xs text-muted-foreground">
-                ({confidence})
-              </span>
+              {verifiedRatio} <span className="text-xs text-muted-foreground">({confidence})</span>
             </dd>
           </div>
         </dl>
@@ -164,12 +152,8 @@ function Detail() {
                   onClick={() => jumpTo(issue.claimId)}
                   className="w-full rounded border border-border bg-warn-soft/40 px-3 py-2 text-left transition-colors hover:bg-warn-soft"
                 >
-                  <span className="font-mono text-xs font-medium text-warn">
-                    ⚠ {issue.title}
-                  </span>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {issue.description}
-                  </p>
+                  <span className="font-mono text-xs font-medium text-warn">⚠ {issue.title}</span>
+                  <p className="mt-1 text-xs text-muted-foreground">{issue.description}</p>
                 </button>
               </li>
             ))}
@@ -232,10 +216,7 @@ function ClaimRow({
           {claimStatusLabel(claim.status)}
         </span>
         <ChevronDown
-          className={cn(
-            "size-4 text-muted-foreground transition-transform",
-            open && "rotate-180",
-          )}
+          className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")}
         />
       </button>
 
@@ -256,10 +237,7 @@ function ClaimRow({
                       {e.file}
                       {e.line ? `:${e.line}` : ""}
                     </a>
-                    <span className="text-xs text-muted-foreground">
-                      {" "}
-                      — {e.description}
-                    </span>
+                    <span className="text-xs text-muted-foreground"> — {e.description}</span>
                   </span>
                 </li>
               ))}
@@ -271,9 +249,7 @@ function ClaimRow({
               {missing.map((e, i) => (
                 <li key={i} className="flex gap-2">
                   <span className="text-bad">✗</span>
-                  <span className="text-xs text-muted-foreground">
-                    {e.description}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{e.description}</span>
                 </li>
               ))}
             </EvidenceList>
@@ -283,9 +259,7 @@ function ClaimRow({
             <div className="font-mono text-[11px] tracking-widest text-muted-foreground">
               FINDING
             </div>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed">
-              {claim.finding}
-            </p>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed">{claim.finding}</p>
           </div>
         </div>
       )}
@@ -304,11 +278,7 @@ function EvidenceList({
 }) {
   return (
     <div>
-      <div
-        className={cn("font-mono text-[11px] tracking-widest", tone)}
-      >
-        {title}
-      </div>
+      <div className={cn("font-mono text-[11px] tracking-widest", tone)}>{title}</div>
       <ul className="mt-1.5 space-y-1">{children}</ul>
     </div>
   );

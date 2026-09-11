@@ -12,7 +12,7 @@ Hackathon organizers receive dozens or hundreds of submissions, each with a READ
 
 ## The Solution
 
-Projectpluse analyzes each submitted GitHub repository and compares the claims in the README with actual evidence found in the code. Instead of showing an opaque AI score, it shows *why* a claim is verified or not — with file paths, line numbers, and a concise finding.
+Projectpluse analyzes each submitted GitHub repository and compares the claims in the README with actual evidence found in the code. Instead of showing an opaque AI score, it shows _why_ a claim is verified or not — with file paths, line numbers, and a concise finding.
 
 ## How It Works
 
@@ -31,6 +31,7 @@ Claim → Evidence → Reasoning → Verification Result
 ```
 
 Possible results per claim:
+
 - **Verified** — clear supporting evidence found
 - **Partially Verified** — some evidence found, claim likely overstated
 - **Not Found** — no relevant evidence detected (may mean missing, not necessarily false)
@@ -50,16 +51,16 @@ Possible results per claim:
 
 ## Frontend Technology
 
-| Technology | Role |
-|---|---|
-| React 19 | UI framework |
-| TypeScript | Type-safe development |
-| TanStack Start | Full-stack React framework (SSR) |
-| TanStack Router | File-based routing |
-| Vite | Build tool |
-| Tailwind CSS v4 | Utility-first styling |
-| shadcn/ui | Accessible UI components (Radix UI) |
-| Lucide React | Icons |
+| Technology      | Role                                |
+| --------------- | ----------------------------------- |
+| React 19        | UI framework                        |
+| TypeScript      | Type-safe development               |
+| TanStack Start  | Full-stack React framework (SSR)    |
+| TanStack Router | File-based routing                  |
+| Vite            | Build tool                          |
+| Tailwind CSS v4 | Utility-first styling               |
+| shadcn/ui       | Accessible UI components (Radix UI) |
+| Lucide React    | Icons                               |
 
 ---
 
@@ -115,17 +116,17 @@ frontend/
 
 ## Current Implementation Status
 
-| Feature | Status |
-|---|---|
-| Hackathon list page | ✅ Implemented (mock data) |
-| Create hackathon form | ✅ Implemented (client-side only) |
-| Analysis progress page | ✅ Implemented (simulated) |
-| Organizer dashboard | ✅ Implemented (mock data) |
-| Submission detail + evidence view | ✅ Implemented (mock data) |
-| Sorting and filtering | ✅ Implemented (client-side) |
-| Real backend API integration | ❌ Not yet — planned FastAPI backend |
-| GitHub repository analysis | ❌ Not yet — planned AI pipeline |
-| Authentication | ❌ Not yet — planned |
+| Feature                           | Status                               |
+| --------------------------------- | ------------------------------------ |
+| Hackathon list page               | ✅ Implemented (mock data)           |
+| Create hackathon form             | ✅ Implemented (client-side only)    |
+| Analysis progress page            | ✅ Implemented (simulated)           |
+| Organizer dashboard               | ✅ Implemented (mock data)           |
+| Submission detail + evidence view | ✅ Implemented (mock data)           |
+| Sorting and filtering             | ✅ Implemented (client-side)         |
+| Real backend API integration      | ❌ Not yet — planned FastAPI backend |
+| GitHub repository analysis        | ❌ Not yet — planned AI pipeline     |
+| Authentication                    | ❌ Not yet — planned                 |
 
 ---
 

@@ -10,6 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as HackathonsIndexRouteImport } from './routes/hackathons/index'
 import { Route as HackathonsNewRouteImport } from './routes/hackathons/new'
 import { Route as HackathonsIdIndexRouteImport } from './routes/hackathons/$id/index'
 import { Route as HackathonsIdAnalyzingRouteImport } from './routes/hackathons/$id/analyzing'
@@ -19,6 +22,21 @@ import { Route as HackathonsIdSubmissionsSubmissionIdRouteImport } from './route
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HackathonsIndexRoute = HackathonsIndexRouteImport.update({
+  id: '/hackathons/',
+  path: '/hackathons/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HackathonsNewRoute = HackathonsNewRouteImport.update({
@@ -50,7 +68,10 @@ const HackathonsIdSubmissionsSubmissionIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/hackathons/new': typeof HackathonsNewRoute
+  '/hackathons/': typeof HackathonsIndexRoute
   '/hackathons/$id/analyzing': typeof HackathonsIdAnalyzingRoute
   '/hackathons/$id/settings': typeof HackathonsIdSettingsRoute
   '/hackathons/$id/': typeof HackathonsIdIndexRoute
@@ -58,7 +79,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/hackathons/new': typeof HackathonsNewRoute
+  '/hackathons': typeof HackathonsIndexRoute
   '/hackathons/$id/analyzing': typeof HackathonsIdAnalyzingRoute
   '/hackathons/$id/settings': typeof HackathonsIdSettingsRoute
   '/hackathons/$id': typeof HackathonsIdIndexRoute
@@ -67,7 +91,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/hackathons/new': typeof HackathonsNewRoute
+  '/hackathons/': typeof HackathonsIndexRoute
   '/hackathons/$id/analyzing': typeof HackathonsIdAnalyzingRoute
   '/hackathons/$id/settings': typeof HackathonsIdSettingsRoute
   '/hackathons/$id/': typeof HackathonsIdIndexRoute
@@ -77,7 +104,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
+    | '/signup'
     | '/hackathons/new'
+    | '/hackathons/'
     | '/hackathons/$id/analyzing'
     | '/hackathons/$id/settings'
     | '/hackathons/$id/'
@@ -85,7 +115,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
+    | '/signup'
     | '/hackathons/new'
+    | '/hackathons'
     | '/hackathons/$id/analyzing'
     | '/hackathons/$id/settings'
     | '/hackathons/$id'
@@ -93,7 +126,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/login'
+    | '/signup'
     | '/hackathons/new'
+    | '/hackathons/'
     | '/hackathons/$id/analyzing'
     | '/hackathons/$id/settings'
     | '/hackathons/$id/'
@@ -102,7 +138,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
   HackathonsNewRoute: typeof HackathonsNewRoute
+  HackathonsIndexRoute: typeof HackathonsIndexRoute
   HackathonsIdAnalyzingRoute: typeof HackathonsIdAnalyzingRoute
   HackathonsIdSettingsRoute: typeof HackathonsIdSettingsRoute
   HackathonsIdIndexRoute: typeof HackathonsIdIndexRoute
@@ -116,6 +155,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hackathons/': {
+      id: '/hackathons/'
+      path: '/hackathons'
+      fullPath: '/hackathons/'
+      preLoaderRoute: typeof HackathonsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hackathons/new': {
@@ -158,7 +218,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
   HackathonsNewRoute: HackathonsNewRoute,
+  HackathonsIndexRoute: HackathonsIndexRoute,
   HackathonsIdAnalyzingRoute: HackathonsIdAnalyzingRoute,
   HackathonsIdSettingsRoute: HackathonsIdSettingsRoute,
   HackathonsIdIndexRoute: HackathonsIdIndexRoute,

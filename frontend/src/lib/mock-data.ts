@@ -4,14 +4,12 @@ export const problemStatements = [
   {
     id: "ps-1",
     title: "Automating Repetitive Tasks",
-    description:
-      "Tools that remove manual busywork from knowledge workers' daily routines.",
+    description: "Tools that remove manual busywork from knowledge workers' daily routines.",
   },
   {
     id: "ps-2",
     title: "Accessible Public Data",
-    description:
-      "Making open government or civic datasets usable by non-technical people.",
+    description: "Making open government or civic datasets usable by non-technical people.",
   },
   {
     id: "ps-3",
@@ -67,8 +65,7 @@ export const submissions: Submission[] = [
         id: "c-1-1",
         text: "Gmail integration",
         status: "verified",
-        finding:
-          "A Gmail API client is wired up and used to read message threads.",
+        finding: "A Gmail API client is wired up and used to read message threads.",
         evidence: [
           {
             file: "integrations/gmail_client.py",
@@ -90,8 +87,7 @@ export const submissions: Submission[] = [
         id: "c-1-2",
         text: "Task extraction",
         status: "verified",
-        finding:
-          "An LLM prompt pipeline extracts action items from message bodies.",
+        finding: "An LLM prompt pipeline extracts action items from message bodies.",
         evidence: [
           {
             file: "core/extract.py",
@@ -367,8 +363,7 @@ export const submissions: Submission[] = [
         id: "c-3-5",
         text: "Email alerts for new permits nearby",
         status: "partially_verified",
-        finding:
-          "A subscription table exists, but no code sends the alert emails.",
+        finding: "A subscription table exists, but no code sends the alert emails.",
         evidence: [
           {
             file: "db/schema.sql",
@@ -392,8 +387,7 @@ export const submissions: Submission[] = [
         claimId: "c-3-5",
         type: "overstated",
         title: 'CLAIM OVERSTATED — "Email alerts for new permits nearby"',
-        description:
-          "Subscriptions can be stored, but no delivery mechanism was found.",
+        description: "Subscriptions can be stored, but no delivery mechanism was found.",
       },
     ],
   },
@@ -458,8 +452,7 @@ export const submissions: Submission[] = [
         id: "c-4-4",
         text: "Anomaly detection on spending",
         status: "not_found",
-        finding:
-          "No statistical or model-based anomaly detection code was found.",
+        finding: "No statistical or model-based anomaly detection code was found.",
         evidence: [
           {
             file: "analysis/",
@@ -616,8 +609,7 @@ export const submissions: Submission[] = [
         id: "c-6-3",
         text: "Semantic search with embeddings",
         status: "partially_verified",
-        finding:
-          "An embedding client exists, but no vector index or similarity query was found.",
+        finding: "An embedding client exists, but no vector index or similarity query was found.",
         evidence: [
           {
             file: "lib/embed.ts",
@@ -638,8 +630,7 @@ export const submissions: Submission[] = [
         id: "c-6-4",
         text: "VS Code extension",
         status: "not_found",
-        finding:
-          "The repository contains no extension manifest or editor integration.",
+        finding: "The repository contains no extension manifest or editor integration.",
         evidence: [
           {
             file: "package.json",
@@ -656,8 +647,7 @@ export const submissions: Submission[] = [
         claimId: "c-6-3",
         type: "overstated",
         title: 'CLAIM OVERSTATED — "Semantic search with embeddings"',
-        description:
-          "Embeddings can be generated, but nothing stores or queries them.",
+        description: "Embeddings can be generated, but nothing stores or queries them.",
       },
       {
         id: "i-6-2",

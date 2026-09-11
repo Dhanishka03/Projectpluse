@@ -6,39 +6,39 @@ Projectpluse is an AI-powered hackathon submission verification platform. It com
 
 The system will:
 
-* Accept hackathon problem statements and submissions.
-* Analyze GitHub repositories and README files.
-* Extract and verify project claims.
-* Classify claims as `verified`, `partially_verified`, or `not_found`.
-* Identify unsupported or overstated claims.
-* Calculate relevance and verification scores.
-* Display clear evidence to organizers.
+- Accept hackathon problem statements and submissions.
+- Analyze GitHub repositories and README files.
+- Extract and verify project claims.
+- Classify claims as `verified`, `partially_verified`, or `not_found`.
+- Identify unsupported or overstated claims.
+- Calculate relevance and verification scores.
+- Display clear evidence to organizers.
 
 The current repository primarily contains the frontend. Do not assume the AI backend is implemented.
 
 ## Instructions for AI Agents
 
-* Inspect existing code before making changes.
-* Reuse existing components, hooks, utilities, and styles.
-* Make small, focused changes.
-* Do not rewrite unrelated code.
-* Do not delete files without checking imports and generated status.
-* Avoid unnecessary dependencies.
-* Preserve the existing architecture and visual style.
-* Keep the frontend compatible with the planned FastAPI backend.
-* Handle loading, empty, error, and analyzing states.
-* Never expose secrets or credentials.
+- Inspect existing code before making changes.
+- Reuse existing components, hooks, utilities, and styles.
+- Make small, focused changes.
+- Do not rewrite unrelated code.
+- Do not delete files without checking imports and generated status.
+- Avoid unnecessary dependencies.
+- Preserve the existing architecture and visual style.
+- Keep the frontend compatible with the planned FastAPI backend.
+- Handle loading, empty, error, and analyzing states.
+- Never expose secrets or credentials.
 
 ## Technology Stack
 
-* React
-* TypeScript
-* TanStack Start
-* TanStack Router
-* Vite
-* Tailwind CSS
-* shadcn/ui
-* Radix UI
+- React
+- TypeScript
+- TanStack Start
+- TanStack Router
+- Vite
+- Tailwind CSS
+- shadcn/ui
+- Radix UI
 
 Follow the existing stack and package manager.
 
@@ -56,21 +56,21 @@ Follow the existing stack and package manager.
 
 The dashboard should show:
 
-* Submission statistics
-* Relevance scores
-* Verified claims
-* Issues
-* Status
-* Filtering and sorting
+- Submission statistics
+- Relevance scores
+- Verified claims
+- Issues
+- Status
+- Filtering and sorting
 
 Submission details should show:
 
-* Team and project information
-* GitHub link
-* Claims
-* Verification status
-* Supporting evidence
-* Issues and findings
+- Team and project information
+- GitHub link
+- Claims
+- Verification status
+- Supporting evidence
+- Issues and findings
 
 Evidence should be clear and link to GitHub files or lines when possible.
 
@@ -98,13 +98,13 @@ Modify the source routes or configuration instead.
 
 ## Code Quality
 
-* Use clear TypeScript types.
-* Avoid `any` when possible.
-* Keep components and functions focused.
-* Use descriptive names.
-* Keep API, business logic, and presentation reasonably separated.
-* Preserve accessibility and responsive design.
-* Run formatting, linting, and build checks when available.
+- Use clear TypeScript types.
+- Avoid `any` when possible.
+- Keep components and functions focused.
+- Use descriptive names.
+- Keep API, business logic, and presentation reasonably separated.
+- Preserve accessibility and responsive design.
+- Run formatting, linting, and build checks when available.
 
 ## Security
 

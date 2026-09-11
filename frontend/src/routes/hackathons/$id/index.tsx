@@ -1,18 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, ChevronRight } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
-import {
-  ClaimsMeter,
-  IssueCount,
-  RelevancePill,
-  StatusBadge,
-} from "@/components/verifier/pills";
-import {
-  getHackathon,
-  getSubmissions,
-  problemStatementTitle,
-} from "@/lib/mock-data";
+import { ClaimsMeter, IssueCount, RelevancePill, StatusBadge } from "@/components/verifier/pills";
+import { getHackathon, getSubmissions, problemStatementTitle } from "@/lib/mock-data";
 import type { Submission } from "@/lib/types";
 import {
   Select,
@@ -23,13 +14,9 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/hackathons/$id/")({
   head: () => ({
@@ -56,17 +43,23 @@ type SortKey = "relevanceScore" | "claimsVerifiedCount" | "issuesCount";
 function StatCard({ value, label }: { value: number; label: string }) {
   return (
     <div className="rounded-md border border-border bg-card px-4 py-3">
-      <div className="font-mono text-2xl tabular-nums text-foreground">
-        {value}
-      </div>
+      <div className="font-mono text-2xl tabular-nums text-foreground">{value}</div>
       <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }
 
 function Dashboard() {
+  const { user } = useAuth();
   const { id } = Route.useParams();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) navigate({ to: "/login" });
+  }, [user, navigate]);
+
+  if (!user) return null;
+
   const hackathon = getHackathon(id);
   const rows = getSubmissions(id);
 
@@ -107,16 +100,13 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <Crumbs items={[{ label: "Hackathons", to: "/" }, { label: hackathon.name }]} />
+      <Crumbs items={[{ label: "Hackathons", to: "/hackathons" }, { label: hackathon.name }]} />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {hackathon.name}
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight">{hackathon.name}</h1>
           <p className="mt-1 font-mono text-xs text-muted-foreground">
-            {hackathon.submissionStart.slice(0, 10)} →{" "}
-            {hackathon.submissionEnd.slice(0, 10)}
+            {hackathon.submissionStart.slice(0, 10)} → {hackathon.submissionEnd.slice(0, 10)}
           </p>
         </div>
         {hackathon.status === "analyzing" && (
@@ -171,9 +161,7 @@ function Dashboard() {
             step={5}
             className="w-32"
           />
-          <span className="w-7 font-mono text-xs tabular-nums">
-            {minRelevance}
-          </span>
+          <span className="w-7 font-mono text-xs tabular-nums">{minRelevance}</span>
         </div>
 
         <span className="ml-auto font-mono text-xs text-muted-foreground">
@@ -209,19 +197,22 @@ function Dashboard() {
           </thead>
           <tbody>
             {filtered.map((s, i) => (
-              <Row key={s.id} rank={i + 1} submission={s} hackathonId={id} onOpen={() =>
-                navigate({
-                  to: "/hackathons/$id/submissions/$submissionId",
-                  params: { id, submissionId: s.id },
-                })
-              } />
+              <Row
+                key={s.id}
+                rank={i + 1}
+                submission={s}
+                hackathonId={id}
+                onOpen={() =>
+                  navigate({
+                    to: "/hackathons/$id/submissions/$submissionId",
+                    params: { id, submissionId: s.id },
+                  })
+                }
+              />
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td
-                  colSpan={8}
-                  className="px-3 py-14 text-center text-sm text-muted-foreground"
-                >
+                <td colSpan={8} className="px-3 py-14 text-center text-sm text-muted-foreground">
                   {rows.length === 0
                     ? "No submissions have been uploaded for this hackathon yet."
                     : "No submissions match the current filters."}
@@ -277,9 +268,7 @@ function Row({
       onClick={onOpen}
       className="cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-accent/50"
     >
-      <td className="px-3 py-2 font-mono text-xs tabular-nums text-muted-foreground">
-        {rank}
-      </td>
+      <td className="px-3 py-2 font-mono text-xs tabular-nums text-muted-foreground">{rank}</td>
       <td className="px-3 py-2">
         <div className="font-medium leading-tight">{s.teamName}</div>
         <div className="text-xs text-muted-foreground">{s.projectName}</div>
@@ -295,10 +284,7 @@ function Row({
         )}
       </td>
       <td className="px-3 py-2">
-        <ClaimsMeter
-          verified={s.claimsVerifiedCount}
-          total={s.claimsTotalCount}
-        />
+        <ClaimsMeter verified={s.claimsVerifiedCount} total={s.claimsTotalCount} />
       </td>
       <td className="px-3 py-2">
         <IssueCount count={s.issuesCount} />
@@ -312,9 +298,7 @@ function Row({
                   <StatusBadge status={s.status} />
                 </span>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                {s.failureReason}
-              </TooltipContent>
+              <TooltipContent className="max-w-xs">{s.failureReason}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : (

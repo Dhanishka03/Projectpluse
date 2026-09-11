@@ -1,10 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { getHackathon, getSubmissions } from "@/lib/mock-data";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/hackathons/$id/analyzing")({
   head: () => ({
@@ -12,14 +13,12 @@ export const Route = createFileRoute("/hackathons/$id/analyzing")({
       { title: "Analyzing Submissions — Projectpluse" },
       {
         name: "description",
-        content:
-          "Live progress while each submission's repository is analyzed against its claims.",
+        content: "Live progress while each submission's repository is analyzed against its claims.",
       },
       { property: "og:title", content: "Analyzing Submissions — Projectpluse" },
       {
         property: "og:description",
-        content:
-          "Live progress while each submission's repository is analyzed against its claims.",
+        content: "Live progress while each submission's repository is analyzed against its claims.",
       },
     ],
   }),
@@ -27,7 +26,16 @@ export const Route = createFileRoute("/hackathons/$id/analyzing")({
 });
 
 function Analyzing() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { id } = Route.useParams();
+
+  useEffect(() => {
+    if (!user) navigate({ to: "/login" });
+  }, [user, navigate]);
+
+  if (!user) return null;
+
   const hackathon = getHackathon(id);
   const queue = getSubmissions(id);
   const total = queue.length;
@@ -43,7 +51,7 @@ function Analyzing() {
     <AppShell>
       <Crumbs
         items={[
-          { label: "Hackathons", to: "/" },
+          { label: "Hackathons", to: "/hackathons" },
           {
             label: hackathon?.name ?? "Hackathon",
             to: "/hackathons/$id",
@@ -57,23 +65,14 @@ function Analyzing() {
         <h1 className="text-lg font-semibold tracking-tight">
           Analyzing {Math.min(done + 1, total)} of {total} submissions
         </h1>
-        <Progress
-          value={total ? (done / total) * 100 : 0}
-          className="mt-5 h-1.5"
-        />
-        <p className="mt-3 text-xs text-muted-foreground">
-          This may take a few minutes.
-        </p>
+        <Progress value={total ? (done / total) * 100 : 0} className="mt-5 h-1.5" />
+        <p className="mt-3 text-xs text-muted-foreground">This may take a few minutes.</p>
 
         <ul className="mt-8 divide-y divide-border overflow-hidden rounded-md border border-border bg-card text-left">
           {queue.map((s, i) => {
-            const state =
-              i < done ? "done" : i === done ? "analyzing" : "queued";
+            const state = i < done ? "done" : i === done ? "analyzing" : "queued";
             return (
-              <li
-                key={s.id}
-                className="flex items-center justify-between px-3 py-2 text-sm"
-              >
+              <li key={s.id} className="flex items-center justify-between px-3 py-2 text-sm">
                 <span>{s.teamName}</span>
                 <span
                   className={cn(
@@ -85,11 +84,7 @@ function Analyzing() {
                         : "text-muted-foreground",
                   )}
                 >
-                  {state === "done"
-                    ? "done ✓"
-                    : state === "analyzing"
-                      ? "analyzing…"
-                      : "queued"}
+                  {state === "done" ? "done ✓" : state === "analyzing" ? "analyzing…" : "queued"}
                 </span>
               </li>
             );
