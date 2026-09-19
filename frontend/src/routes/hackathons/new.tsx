@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Upload, Link as LinkIcon } from "lucide-react";
+import { Plus, Trash2, Upload, Link as LinkIcon, Loader2 } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { hackathons } from "@/lib/mock-data";
+import { createHackathon, triggerAnalysis } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/hackathons/new")({
@@ -106,9 +106,11 @@ function NewHackathon() {
   const [rows, setRows] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetImported, setSheetImported] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const parsed = useMemo(() => parseRows(rows), [rows]);
-  const canSubmit = name.trim() !== "" && (parsed?.validUrls ?? 0) > 0;
+  const canSubmit = !submitting && name.trim() !== "" && (parsed?.validUrls ?? 0) > 0;
 
   function updateStatement(i: number, key: "title" | "description", v: string) {
     setStatements((s) => s.map((item, idx) => (idx === i ? { ...item, [key]: v } : item)));
@@ -127,21 +129,48 @@ function NewHackathon() {
 
   const previewRows = parsed?.rows.slice(0, 5) ?? [];
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      // 1. Create the hackathon in the DB
+      const hackathon = await createHackathon({
+        name: name.trim(),
+        submissionStart: start ? new Date(start).toISOString() : new Date().toISOString(),
+        submissionEnd: end ? new Date(end).toISOString() : new Date().toISOString(),
+        problemStatements: statements
+          .filter((s) => s.title.trim())
+          .map((s) => ({ title: s.title.trim(), description: s.description.trim() })),
+        csvData: rows.trim() || undefined,
+      });
+
+      // 2. Navigate to the analyzing page immediately
+      void navigate({
+        to: "/hackathons/$id/analyzing",
+        params: { id: hackathon.id },
+      });
+
+      // 3. Kick off analysis in the background (non-blocking — the page polls progress)
+      triggerAnalysis(hackathon.id).catch(() => {
+        // analysis errors are surfaced on the analyzing page via the progress endpoint
+      });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to create hackathon");
+      setSubmitting(false);
+    }
+  }
+
+  if (!user) return null;
+
   return (
     <AppShell>
       <Crumbs items={[{ label: "Hackathons", to: "/hackathons" }, { label: "New" }]} />
       <h1 className="text-xl font-semibold tracking-tight">New hackathon</h1>
 
-      <form
-        className="mt-6 max-w-2xl space-y-8"
-        onSubmit={(e) => {
-          e.preventDefault();
-          navigate({
-            to: "/hackathons/$id/analyzing",
-            params: { id: hackathons[1]?.id ?? "hk-civic-jam" },
-          });
-        }}
-      >
+      <form className="mt-6 max-w-2xl space-y-8" onSubmit={(e) => { void handleSubmit(e); }}>
         <div className="space-y-2">
           <Label htmlFor="name">Hackathon name</Label>
           <Input
@@ -340,8 +369,21 @@ function NewHackathon() {
           )}
         </div>
 
-        <Button type="submit" size="sm" disabled={!canSubmit}>
-          Validate &amp; continue
+        {submitError && (
+          <div className="rounded-md border border-border bg-bad-soft px-3 py-2 text-xs text-bad">
+            {submitError}
+          </div>
+        )}
+
+        <Button type="submit" size="sm" disabled={!canSubmit} id="create-hackathon-submit">
+          {submitting ? (
+            <>
+              <Loader2 className="mr-2 size-3.5 animate-spin" />
+              Creating…
+            </>
+          ) : (
+            "Validate & continue"
+          )}
         </Button>
       </form>
     </AppShell>

@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, ChevronDown, ExternalLink } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { ClaimStatusMark, claimStatusLabel, ClaimsBarLarge, RelevanceBarLarge } from "@/components/verifier/pills";
-import { getHackathon, getSubmission, problemStatementTitle } from "@/lib/mock-data";
-import type { Claim, Submission } from "@/lib/types";
+import { getHackathon, getSubmission } from "@/lib/api";
+import type { Hackathon, Submission, Claim } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -36,24 +36,33 @@ function Detail() {
   const navigate = useNavigate();
   const { id, submissionId } = Route.useParams();
 
+  const [hackathon, setHackathon] = useState<Hackathon | null>(null);
+  const [submission, setSubmission] = useState<Submission | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<string[]>([]);
+  const [reviewed, setReviewed] = useState(false);
+
   useEffect(() => {
     if (!user) navigate({ to: "/login" });
   }, [user, navigate]);
 
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    Promise.all([getHackathon(id), getSubmission(id, submissionId)])
+      .then(([h, s]) => {
+        setHackathon(h);
+        setSubmission(s);
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : "Failed to load submission"),
+      )
+      .finally(() => setLoading(false));
+  }, [user, id, submissionId]);
+
   if (!user) return null;
-
-  const hackathon = getHackathon(id);
-  const submission = getSubmission(submissionId);
-  const [open, setOpen] = useState<string[]>([]);
-  const [reviewed, setReviewed] = useState(false);
-
-  if (!submission) {
-    return (
-      <AppShell>
-        <p className="text-sm text-muted-foreground">Submission not found.</p>
-      </AppShell>
-    );
-  }
 
   const toggle = (cid: string) =>
     setOpen((o) => (o.includes(cid) ? o.filter((x) => x !== cid) : [...o, cid]));
@@ -64,6 +73,30 @@ function Detail() {
       .getElementById(`claim-${cid}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
+
+  /** Resolve problem statement title from hackathon data */
+  const psTitle = (psId: string) =>
+    hackathon?.problemStatements.find((p) => p.id === psId)?.title ?? psId;
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="animate-pulse space-y-4">
+          <div className="h-5 w-48 rounded bg-muted" />
+          <div className="h-32 rounded-md bg-muted" />
+          <div className="h-64 rounded-md bg-muted" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !submission) {
+    return (
+      <AppShell>
+        <p className="text-sm text-bad">{error ?? "Submission not found."}</p>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -101,7 +134,7 @@ function Detail() {
         <dl className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-3">
           <div>
             <dt className="text-xs text-muted-foreground">Problem statement</dt>
-            <dd className="mt-1 text-sm">{problemStatementTitle(submission.problemStatementId)}</dd>
+            <dd className="mt-1 text-sm">{psTitle(submission.problemStatementId)}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Relevance</dt>

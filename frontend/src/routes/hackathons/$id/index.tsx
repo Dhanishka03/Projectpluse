@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, ChevronRight } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { ClaimsBar, IssueCount, RelevanceBar, StatusBadge } from "@/components/verifier/pills";
-import { getHackathon, getSubmissions, problemStatementTitle } from "@/lib/mock-data";
-import type { Submission } from "@/lib/types";
+import { getHackathon, listSubmissions } from "@/lib/api";
+import type { Hackathon, Submission } from "@/lib/types";
 import {
   Select,
   SelectContent,
@@ -49,19 +49,46 @@ function StatCard({ value, label }: { value: number; label: string }) {
   );
 }
 
+function SkeletonRow() {
+  return (
+    <tr className="border-b border-border/70 animate-pulse">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <td key={i} className="px-3 py-2">
+          <div className="h-3 rounded bg-muted" style={{ width: i === 1 ? "80%" : "60%" }} />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 function Dashboard() {
   const { user } = useAuth();
   const { id } = Route.useParams();
   const navigate = useNavigate();
 
+  const [hackathon, setHackathon] = useState<Hackathon | null>(null);
+  const [rows, setRows] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!user) navigate({ to: "/login" });
   }, [user, navigate]);
 
-  if (!user) return null;
-
-  const hackathon = getHackathon(id);
-  const rows = getSubmissions(id);
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    Promise.all([getHackathon(id), listSubmissions(id)])
+      .then(([h, subs]) => {
+        setHackathon(h);
+        setRows(subs);
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : "Failed to load dashboard"),
+      )
+      .finally(() => setLoading(false));
+  }, [user, id]);
 
   const [ps, setPs] = useState("all");
   const [status, setStatus] = useState("all");
@@ -90,7 +117,17 @@ function Dashboard() {
     }
   }
 
-  if (!hackathon) {
+  if (!user) return null;
+
+  if (error) {
+    return (
+      <AppShell>
+        <p className="text-sm text-bad">{error}</p>
+      </AppShell>
+    );
+  }
+
+  if (!loading && !hackathon) {
     return (
       <AppShell>
         <p className="text-sm text-muted-foreground">Hackathon not found.</p>
@@ -98,18 +135,26 @@ function Dashboard() {
     );
   }
 
+  /** Helper to resolve problem statement title by id */
+  const psTitle = (psId: string) =>
+    hackathon?.problemStatements.find((p) => p.id === psId)?.title ?? psId;
+
   return (
     <AppShell>
-      <Crumbs items={[{ label: "Hackathons", to: "/hackathons" }, { label: hackathon.name }]} />
+      <Crumbs items={[{ label: "Hackathons", to: "/hackathons" }, { label: hackathon?.name ?? "…" }]} />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{hackathon.name}</h1>
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
-            {hackathon.submissionStart.slice(0, 10)} → {hackathon.submissionEnd.slice(0, 10)}
-          </p>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {hackathon?.name ?? <span className="animate-pulse text-muted-foreground">Loading…</span>}
+          </h1>
+          {hackathon && (
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              {hackathon.submissionStart.slice(0, 10)} → {hackathon.submissionEnd.slice(0, 10)}
+            </p>
+          )}
         </div>
-        {hackathon.status === "analyzing" && (
+        {hackathon?.status === "analyzing" && (
           <Button asChild variant="outline" size="sm">
             <Link to="/hackathons/$id/analyzing" params={{ id }}>
               View analysis progress
@@ -119,10 +164,10 @@ function Dashboard() {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard value={hackathon.stats.totalSubmissions} label="Submissions" />
-        <StatCard value={hackathon.stats.analyzed} label="Analyzed" />
-        <StatCard value={hackathon.stats.needsReview} label="Need review" />
-        <StatCard value={hackathon.stats.failed} label="Failed" />
+        <StatCard value={hackathon?.stats.totalSubmissions ?? 0} label="Submissions" />
+        <StatCard value={hackathon?.stats.analyzed ?? 0} label="Analyzed" />
+        <StatCard value={hackathon?.stats.needsReview ?? 0} label="Need review" />
+        <StatCard value={hackathon?.stats.failed ?? 0} label="Failed" />
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5">
@@ -132,7 +177,7 @@ function Dashboard() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All problem statements</SelectItem>
-            {hackathon.problemStatements.map((p) => (
+            {hackathon?.problemStatements.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.title}
               </SelectItem>
@@ -196,28 +241,39 @@ function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s, i) => (
-              <Row
-                key={s.id}
-                rank={i + 1}
-                submission={s}
-                hackathonId={id}
-                onOpen={() =>
-                  navigate({
-                    to: "/hackathons/$id/submissions/$submissionId",
-                    params: { id, submissionId: s.id },
-                  })
-                }
-              />
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-3 py-14 text-center text-sm text-muted-foreground">
-                  {rows.length === 0
-                    ? "No submissions have been uploaded for this hackathon yet."
-                    : "No submissions match the current filters."}
-                </td>
-              </tr>
+            {loading ? (
+              <>
+                <SkeletonRow />
+                <SkeletonRow />
+                <SkeletonRow />
+              </>
+            ) : (
+              <>
+                {filtered.map((s, i) => (
+                  <Row
+                    key={s.id}
+                    rank={i + 1}
+                    submission={s}
+                    hackathonId={id}
+                    psTitle={psTitle(s.problemStatementId)}
+                    onOpen={() =>
+                      navigate({
+                        to: "/hackathons/$id/submissions/$submissionId",
+                        params: { id, submissionId: s.id },
+                      })
+                    }
+                  />
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-14 text-center text-sm text-muted-foreground">
+                      {rows.length === 0
+                        ? "No submissions have been uploaded for this hackathon yet."
+                        : "No submissions match the current filters."}
+                    </td>
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>
@@ -255,11 +311,13 @@ function Row({
   rank,
   submission,
   hackathonId,
+  psTitle,
   onOpen,
 }: {
   rank: number;
   submission: Submission;
   hackathonId: string;
+  psTitle: string;
   onOpen: () => void;
 }) {
   const s = submission;
@@ -273,9 +331,7 @@ function Row({
         <div className="font-medium leading-tight">{s.teamName}</div>
         <div className="text-xs text-muted-foreground">{s.projectName}</div>
       </td>
-      <td className="px-3 py-2 text-xs text-muted-foreground">
-        {problemStatementTitle(s.problemStatementId)}
-      </td>
+      <td className="px-3 py-2 text-xs text-muted-foreground">{psTitle}</td>
       <td className="px-3 py-2">
         {s.status === "failed" ? (
           <span className="font-mono text-xs text-muted-foreground">—</span>
