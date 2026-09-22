@@ -21,20 +21,20 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Projectpluse — Verify Hackathon Claims with Evidence" },
+      { title: "Projectpulse — Verify Hackathon Claims with Evidence" },
       {
         name: "description",
         content:
-          "Projectpluse helps hackathon organizers verify whether project claims are supported by real GitHub implementation evidence.",
+          "Projectpulse helps hackathon organizers verify whether project claims are supported by real GitHub implementation evidence.",
       },
       {
         property: "og:title",
-        content: "Projectpluse — Verify Hackathon Claims with Evidence",
+        content: "Projectpulse — Verify Hackathon Claims with Evidence",
       },
       {
         property: "og:description",
         content:
-          "Projectpluse helps hackathon organizers verify whether project claims are supported by real GitHub implementation evidence.",
+          "Projectpulse helps hackathon organizers verify whether project claims are supported by real GitHub implementation evidence.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -69,9 +69,9 @@ function Navbar() {
         <Link
           to="/"
           className="text-sm font-semibold tracking-tight text-foreground transition-opacity hover:opacity-80"
-          aria-label="Projectpluse home"
+          aria-label="Projectpulse home"
         >
-          PROJECTPLUSE
+          PROJECTPULSE
         </Link>
 
         {/* Desktop nav */}
@@ -208,7 +208,7 @@ function HeroDashboard() {
         <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-foreground">
-              Projectpluse
+              Projectpulse
             </span>
             <span className="rounded bg-ok-soft px-1.5 py-0.5 font-mono text-[9px] text-ok">
               Complete
@@ -319,20 +319,12 @@ function HeroSection() {
               </span>
             </div>
 
-            <h1 className="text-4xl font-semibold leading-[1.15] tracking-tight text-foreground sm:text-5xl md:text-[3.5rem]">
-              Does the code{" "}
-              <span className="relative">
-                <span className="relative z-10">actually</span>
-                <span
-                  className="absolute bottom-1 left-0 right-0 h-[6px] rounded bg-warn/25"
-                  aria-hidden="true"
-                />
-              </span>{" "}
-              support the claim?
+            <h1 className="text-4xl font-semibold uppercase tracking-tight text-foreground sm:text-5xl md:text-[3.5rem]">
+              PROJECT PULSE
             </h1>
 
             <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Projectpluse analyzes hackathon submissions, reads the README, inspects the GitHub
+              Projectpulse analyzes hackathon submissions, reads the README, inspects the GitHub
               repository, and connects project claims to real implementation evidence.
             </p>
 
@@ -448,7 +440,7 @@ function SolutionSection() {
               From project claims to implementation evidence.
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              Projectpluse connects what teams say they built with what their repository actually
+              Projectpulse connects what teams say they built with what their repository actually
               contains. Every claim is matched against real files, dependencies, and code paths.
             </p>
 
@@ -611,7 +603,7 @@ function EvidenceSection() {
               Don&apos;t trust the score. Follow the evidence.
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              Projectpluse doesn&apos;t just tell reviewers that a claim is verified. It shows
+              Projectpulse doesn&apos;t just tell reviewers that a claim is verified. It shows
               exactly why — with file paths, line numbers, and dependency matches that any reviewer
               can independently confirm.
             </p>
@@ -705,7 +697,7 @@ function HowItWorksSection() {
     {
       num: "02",
       title: "Analyze",
-      body: "Projectpluse reads the README and analyzes the repository for implementation evidence across source files, dependencies, and configuration.",
+      body: "Projectpulse reads the README and analyzes the repository for implementation evidence across source files, dependencies, and configuration.",
     },
     {
       num: "03",
@@ -811,7 +803,7 @@ function ComparisonSection() {
     "Inconsistent review",
   ];
 
-  const projectpluse = [
+  const projectpulse = [
     "README + repository analysis",
     "Automated evidence discovery",
     "Evidence-backed findings",
@@ -850,13 +842,13 @@ function ComparisonSection() {
             </ul>
           </div>
 
-          {/* Projectpluse */}
+          {/* Projectpulse */}
           <div className="rounded-xl border border-primary/30 bg-primary/[0.03] p-6">
             <div className="mb-5 font-mono text-[11px] uppercase tracking-widest text-primary">
-              Projectpluse
+              Projectpulse
             </div>
             <ul className="space-y-3" role="list">
-              {projectpluse.map((item) => (
+              {projectpulse.map((item) => (
                 <li key={item} className="flex items-start gap-3">
                   <span className="mt-0.5 font-mono text-xs text-ok" aria-hidden="true">
                     ✓
@@ -898,7 +890,7 @@ function FinalCTASection() {
             id="final-cta-secondary"
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-6 py-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Explore Projectpluse
+            Explore Projectpulse
           </Link>
         </div>
       </div>
@@ -918,7 +910,7 @@ function Footer() {
               to="/"
               className="text-sm font-semibold tracking-tight text-foreground transition-opacity hover:opacity-80"
             >
-              PROJECTPLUSE
+              PROJECTPULSE
             </Link>
             <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
               AI-powered hackathon submission verification. Verify claims. Find evidence. Judge with
@@ -988,7 +980,7 @@ function Footer() {
 
         <div className="mt-10 border-t border-border pt-6">
           <p className="text-xs text-muted-foreground">
-            © 2026 Projectpluse. Built for hackathon organizers.
+            © 2026 Projectpulse. Built for hackathon organizers.
           </p>
         </div>
       </div>

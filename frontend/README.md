@@ -1,8 +1,8 @@
-# Projectpluse
+# Projectpulse
 
 **AI-powered hackathon submission verification.**
 
-Projectpluse helps hackathon organizers verify whether a team's GitHub repository actually supports the claims made in their submission — quickly, at scale, with clear evidence.
+Projectpulse helps hackathon organizers verify whether a team's GitHub repository actually supports the claims made in their submission — quickly, at scale, with clear evidence.
 
 ---
 
@@ -12,7 +12,7 @@ Hackathon organizers receive dozens or hundreds of submissions, each with a READ
 
 ## The Solution
 
-Projectpluse analyzes each submitted GitHub repository and compares the claims in the README with actual evidence found in the code. Instead of showing an opaque AI score, it shows _why_ a claim is verified or not — with file paths, line numbers, and a concise finding.
+Projectpulse analyzes each submitted GitHub repository and compares the claims in the README with actual evidence found in the code. Instead of showing an opaque AI score, it shows _why_ a claim is verified or not — with file paths, line numbers, and a concise finding.
 
 ## How It Works
 
@@ -71,7 +71,7 @@ frontend/
 ├── src/
 │   ├── components/
 │   │   ├── ui/               # shadcn/Radix UI primitives (used ones only)
-│   │   └── verifier/         # Projectpluse-specific components
+│   │   └── verifier/         # Projectpulse-specific components
 │   │       ├── pills.tsx     # Status badges, relevance pills, claims meter
 │   │       └── shell.tsx     # App shell layout and breadcrumbs
 │   ├── hooks/                # Reusable React hooks
@@ -157,7 +157,7 @@ The data models in `src/lib/types.ts` are designed to match the expected API con
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd Projectpluse/frontend
+cd Projectpulse/frontend
 
 # Install dependencies
 npm install

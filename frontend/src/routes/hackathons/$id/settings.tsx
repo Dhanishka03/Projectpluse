@@ -11,12 +11,12 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/hackathons/$id/settings")({
   head: () => ({
     meta: [
-      { title: "Hackathon Settings — Projectpluse" },
+      { title: "Hackathon Settings — Projectpulse" },
       {
         name: "description",
         content: "Edit problem statements and re-run the analysis for this hackathon.",
       },
-      { property: "og:title", content: "Hackathon Settings — Projectpluse" },
+      { property: "og:title", content: "Hackathon Settings — Projectpulse" },
       {
         property: "og:description",
         content: "Edit problem statements and re-run the analysis for this hackathon.",

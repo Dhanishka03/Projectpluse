@@ -2,13 +2,14 @@
 routers/hackathons.py — Hackathon CRUD, CSV validation, analysis, and progress endpoints.
 
 Endpoints (in route registration order — specific paths before path params):
-  POST /hackathons                      — create hackathon
-  POST /hackathons/validate             — dry-run CSV validation (pre-creation)
-  GET  /hackathons                      — list all hackathons
-  POST /hackathons/{id}/validate        — dry-run CSV validation (existing hackathon)
-  POST /hackathons/{id}/analyze         — trigger analysis pipeline
-  GET  /hackathons/{id}/progress        — poll analysis progress
-  GET  /hackathons/{id}                 — get single hackathon (MUST be last /{id} GET)
+  POST   /hackathons                    — create hackathon
+  POST   /hackathons/validate           — dry-run CSV validation (pre-creation)
+  GET    /hackathons                    — list all hackathons
+  POST   /hackathons/{id}/validate      — dry-run CSV validation (existing hackathon)
+  POST   /hackathons/{id}/analyze       — trigger analysis pipeline
+  GET    /hackathons/{id}/progress      — poll analysis progress
+  GET    /hackathons/{id}               — get single hackathon (MUST be last /{id} GET)
+  DELETE /hackathons/{id}               — delete hackathon and all associated data
 """
 
 from datetime import datetime, timezone
@@ -297,3 +298,17 @@ def get_progress(hackathon_id: str, db: Session = Depends(get_db)):
 def get_hackathon(hackathon_id: str, db: Session = Depends(get_db)):
     """Get single hackathon with problem statements and computed stats."""
     return build_hackathon_response(_load_hackathon(hackathon_id, db))
+
+
+# ---------------------------------------------------------------------------
+# DELETE /hackathons/{id} — delete hackathon and all associated data
+# ---------------------------------------------------------------------------
+
+@router.delete("/{hackathon_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_hackathon(hackathon_id: str, db: Session = Depends(get_db)):
+    """Delete a hackathon and all its associated submissions, claims, evidence, and issues."""
+    hackathon = db.get(Hackathon, hackathon_id)
+    if not hackathon:
+        raise HTTPException(status_code=404, detail="Hackathon not found")
+    db.delete(hackathon)
+    db.commit()

@@ -53,7 +53,7 @@ class RepoBundle:
 def _get_headers() -> dict[str, str]:
     headers = {
         "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Projectpluse-Verifier/1.0",
+        "User-Agent": "Projectpulse-Verifier/1.0",
     }
     token = settings.github_token.strip() if settings.github_token else ""
     if token:

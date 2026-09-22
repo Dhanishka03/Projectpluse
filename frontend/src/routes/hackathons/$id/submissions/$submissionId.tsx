@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, ChevronDown, ExternalLink } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { ClaimStatusMark, claimStatusLabel, ClaimsBarLarge, RelevanceBarLarge } from "@/components/verifier/pills";
-import { getHackathon, getSubmission } from "@/lib/api";
+import { getHackathon, getSubmission, updateSubmissionStatus } from "@/lib/api";
 import type { Hackathon, Submission, Claim } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,12 +12,12 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/hackathons/$id/submissions/$submissionId")({
   head: () => ({
     meta: [
-      { title: "Submission Evidence — Projectpluse" },
+      { title: "Submission Evidence — Projectpulse" },
       {
         name: "description",
         content: "Every claim in a submission's README next to the code evidence found for it.",
       },
-      { property: "og:title", content: "Submission Evidence — Projectpluse" },
+      { property: "og:title", content: "Submission Evidence — Projectpulse" },
       {
         property: "og:description",
         content: "Every claim in a submission's README next to the code evidence found for it.",
@@ -41,7 +41,7 @@ function Detail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string[]>([]);
-  const [reviewed, setReviewed] = useState(false);
+  const [markingReviewed, setMarkingReviewed] = useState(false);
 
   useEffect(() => {
     if (!user) navigate({ to: "/login" });
@@ -77,6 +77,21 @@ function Detail() {
   /** Resolve problem statement title from hackathon data */
   const psTitle = (psId: string) =>
     hackathon?.problemStatements.find((p) => p.id === psId)?.title ?? psId;
+
+  const isVerified = submission?.status === "verified";
+
+  async function handleMarkReviewed() {
+    if (!submission || isVerified) return;
+    setMarkingReviewed(true);
+    try {
+      const updated = await updateSubmissionStatus(id, submissionId, "verified");
+      setSubmission(updated);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setMarkingReviewed(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -157,16 +172,17 @@ function Detail() {
       {/* Mark as Reviewed — primary organizer action */}
       <Button
         id="mark-reviewed-button"
-        variant={reviewed ? "outline" : "default"}
+        variant={isVerified ? "outline" : "default"}
         size="lg"
         className={cn(
           "mt-4 w-full text-sm font-medium",
-          reviewed && "border-ok/30 text-ok hover:bg-ok-soft/50",
+          isVerified && "border-ok/30 text-ok hover:bg-ok-soft/50",
         )}
-        onClick={() => setReviewed(!reviewed)}
+        onClick={handleMarkReviewed}
+        disabled={isVerified || markingReviewed}
       >
         <CheckCircle2 className="mr-2 size-4" />
-        {reviewed ? "Reviewed ✓" : "Mark as Reviewed"}
+        {markingReviewed ? "Marking as reviewed…" : isVerified ? "Verified ✓" : "Mark as Reviewed"}
       </Button>
 
       {submission.status === "failed" && (

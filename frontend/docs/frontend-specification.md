@@ -1,6 +1,6 @@
-# Frontend Specification — Projectpluse
+# Frontend Specification — Projectpulse
 
-> This document defines the UI/UX requirements for the Projectpluse frontend.
+> This document defines the UI/UX requirements for the Projectpulse frontend.
 > It was originally written as a Lovable build spec. The frontend has been implemented
 > against mock data. API integration with the FastAPI backend comes next.
 

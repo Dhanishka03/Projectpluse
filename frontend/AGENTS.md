@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Projectpluse is an AI-powered hackathon submission verification platform. It compares claims in a team's README with evidence found in its GitHub repository.
+Projectpulse is an AI-powered hackathon submission verification platform. It compares claims in a team's README with evidence found in its GitHub repository.
 
 The system will:
 
@@ -114,7 +114,7 @@ Do not execute submitted code directly. Never commit API keys, tokens, passwords
 
 ## Core Principle
 
-Projectpluse should help organizers answer:
+Projectpulse should help organizers answer:
 
 > Does the submitted GitHub repository actually support what the team claims it supports?
 

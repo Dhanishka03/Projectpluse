@@ -1,7 +1,7 @@
-# AGENTS.md — Projectpluse Workspace
+# AGENTS.md — Projectpulse Workspace
 
 ## Structure
-Projectpluse/
+Projectpulse/
 ├── frontend/ # React/TanStack Start (mock data)
 ├── backend/ # FastAPI (in progress, see BACKEND.md + BUILD-PLAN.md)
 ├── BACKEND.md # backend architecture, data model, API spec

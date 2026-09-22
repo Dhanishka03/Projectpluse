@@ -78,13 +78,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Projectpluse — Verify Hackathon Claims with Evidence" },
+      { title: "Projectpulse — Verify Hackathon Claims with Evidence" },
       {
         name: "description",
         content:
-          "Projectpluse helps hackathon organizers verify whether project claims are supported by real GitHub implementation evidence.",
+          "Projectpulse helps hackathon organizers verify whether project claims are supported by real GitHub implementation evidence.",
       },
-      { property: "og:title", content: "Projectpluse — Verify Hackathon Claims with Evidence" },
+      { property: "og:title", content: "Projectpulse — Verify Hackathon Claims with Evidence" },
       {
         property: "og:description",
         content: "AI-powered hackathon submission verification. Evidence-backed, claim by claim.",

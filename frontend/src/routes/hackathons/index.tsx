@@ -1,16 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/verifier/shell";
-import { listHackathons } from "@/lib/api";
+import { listHackathons, deleteHackathon } from "@/lib/api";
 import type { Hackathon } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/hackathons/")({
   head: () => ({
     meta: [
-      { title: "Hackathons — Projectpluse" },
+      { title: "Hackathons — Projectpulse" },
       {
         name: "description",
         content:
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/hackathons/")({
       },
       {
         property: "og:title",
-        content: "Hackathons — Projectpluse",
+        content: "Hackathons — Projectpulse",
       },
       {
         property: "og:description",
@@ -57,6 +58,7 @@ function HackathonList() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) navigate({ to: "/login" });
@@ -71,6 +73,21 @@ function HackathonList() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load hackathons"))
       .finally(() => setLoading(false));
   }, [user]);
+
+  async function handleDelete(e: React.MouseEvent, id: string, name: string) {
+    e.preventDefault(); // prevent navigation to hackathon detail
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${name}"? This will permanently remove all submissions and analysis data.`)) return;
+    setDeletingId(id);
+    try {
+      await deleteHackathon(id);
+      setHackathons((prev) => prev.filter((h) => h.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete hackathon");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (!user) return null;
 
@@ -111,30 +128,41 @@ function HackathonList() {
       ) : (
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {hackathons.map((h) => (
-            <Link
-              key={h.id}
-              to="/hackathons/$id"
-              params={{ id: h.id }}
-              className="rounded-md border border-border bg-card p-4 transition-colors hover:border-ring/50"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="text-sm font-medium leading-snug">{h.name}</h2>
-                <span
-                  className={cn(
-                    "shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium capitalize",
-                    statusTone[h.status],
-                  )}
-                >
-                  {h.status}
-                </span>
-              </div>
-              <p className="mt-3 font-mono text-xs tabular-nums text-muted-foreground">
-                {h.stats.totalSubmissions} submissions
-              </p>
-              <p className="mt-1 font-mono text-xs text-muted-foreground">
-                {h.submissionStart.slice(0, 10)} → {h.submissionEnd.slice(0, 10)}
-              </p>
-            </Link>
+            <div key={h.id} className="relative group">
+              <Link
+                to="/hackathons/$id"
+                params={{ id: h.id }}
+                className="block rounded-md border border-border bg-card p-4 transition-colors hover:border-ring/50"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-sm font-medium leading-snug pr-6">{h.name}</h2>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium capitalize",
+                      statusTone[h.status],
+                    )}
+                  >
+                    {h.status}
+                  </span>
+                </div>
+                <p className="mt-3 font-mono text-xs tabular-nums text-muted-foreground">
+                  {h.stats.totalSubmissions} submissions
+                </p>
+                <p className="mt-1 font-mono text-xs text-muted-foreground">
+                  {h.submissionStart.slice(0, 10)} → {h.submissionEnd.slice(0, 10)}
+                </p>
+              </Link>
+              {/* Delete button — shown on hover */}
+              <button
+                id={`delete-hackathon-${h.id}`}
+                aria-label={`Delete ${h.name}`}
+                disabled={deletingId === h.id}
+                onClick={(e) => handleDelete(e, h.id, h.name)}
+                className="absolute top-3 right-3 z-10 flex size-7 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-bad hover:bg-bad-soft focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
           ))}
         </div>
       )}

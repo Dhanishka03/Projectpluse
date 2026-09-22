@@ -36,6 +36,10 @@ export function getHackathon(id: string): Promise<Hackathon> {
   return request<Hackathon>(`/hackathons/${id}`);
 }
 
+export function deleteHackathon(id: string): Promise<void> {
+  return request<void>(`/hackathons/${id}`, { method: "DELETE" });
+}
+
 export interface CreateHackathonPayload {
   name: string;
   submissionStart: string;
@@ -96,4 +100,15 @@ export function listSubmissions(hackathonId: string): Promise<Submission[]> {
 
 export function getSubmission(hackathonId: string, submissionId: string): Promise<Submission> {
   return request<Submission>(`/hackathons/${hackathonId}/submissions/${submissionId}`);
+}
+
+export function updateSubmissionStatus(
+  hackathonId: string,
+  submissionId: string,
+  status: "verified" | "review" | "failed",
+): Promise<Submission> {
+  return request<Submission>(`/hackathons/${hackathonId}/submissions/${submissionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }

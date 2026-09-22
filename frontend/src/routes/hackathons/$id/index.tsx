@@ -21,13 +21,13 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/hackathons/$id/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Projectpluse" },
+      { title: "Dashboard — Projectpulse" },
       {
         name: "description",
         content:
           "Scan every submission with relevance, verified claims and open issues in one dense table.",
       },
-      { property: "og:title", content: "Dashboard — Projectpluse" },
+      { property: "og:title", content: "Dashboard — Projectpulse" },
       {
         property: "og:description",
         content:

@@ -1,5 +1,5 @@
 """
-llm_client.py — Single point of contact for all LLM calls in Projectpluse.
+llm_client.py — Single point of contact for all LLM calls in Projectpulse.
 
 RULE: All LLM calls MUST go through this file — nowhere else.
 

@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-13 max-w-[1200px] items-center gap-6 px-6">
           <Link to="/" className="text-sm font-semibold tracking-tight text-foreground">
-            Projectpluse
+            Projectpulse
           </Link>
           <span className="font-mono text-[11px] text-muted-foreground">
             evidence-backed verification

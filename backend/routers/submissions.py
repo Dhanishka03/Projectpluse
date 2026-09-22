@@ -2,14 +2,16 @@
 routers/submissions.py — Submissions list and detail endpoints.
 
 Endpoints:
-  - GET /hackathons/{hackathon_id}/submissions: list submissions for a hackathon
-  - GET /hackathons/{hackathon_id}/submissions/{submission_id}: full submission detail with claims, evidence, and issues
+  - GET   /hackathons/{hackathon_id}/submissions: list submissions for a hackathon
+  - GET   /hackathons/{hackathon_id}/submissions/{submission_id}: full submission detail with claims, evidence, and issues
+  - PATCH /hackathons/{hackathon_id}/submissions/{submission_id}: update submission status (e.g. mark as verified)
 
 CRITICAL: Response shapes match FRONTEND.md §5 verbatim.
 """
 
-from typing import Optional
+from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -145,4 +147,48 @@ def get_submission(
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
 
+    return build_submission_response(sub)
+
+
+# ---------------------------------------------------------------------------
+# PATCH /{submission_id} — update submission status (e.g. mark as reviewed/verified)
+# ---------------------------------------------------------------------------
+
+class SubmissionStatusUpdate(BaseModel):
+    status: Literal["verified", "review", "failed"]
+
+
+@router.patch("/{submission_id}", response_model=SubmissionResponse)
+def update_submission_status(
+    hackathon_id: str,
+    submission_id: str,
+    payload: SubmissionStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    Update the status of a submission.
+    Used by the frontend "Mark as Reviewed" button to set status to "verified".
+    """
+    hackathon = db.get(Hackathon, hackathon_id)
+    if not hackathon:
+        raise HTTPException(status_code=404, detail="Hackathon not found")
+
+    stmt = (
+        select(Submission)
+        .options(
+            selectinload(Submission.claims).selectinload(Claim.evidence),
+            selectinload(Submission.issues),
+        )
+        .where(
+            Submission.hackathon_id == hackathon_id,
+            Submission.id == submission_id,
+        )
+    )
+    sub = db.scalar(stmt)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    sub.status = payload.status
+    db.commit()
+    db.refresh(sub)
     return build_submission_response(sub)
