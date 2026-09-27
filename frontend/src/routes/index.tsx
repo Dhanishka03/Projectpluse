@@ -68,9 +68,10 @@ function Navbar() {
         {/* Logo */}
         <Link
           to="/"
-          className="text-sm font-semibold tracking-tight text-foreground transition-opacity hover:opacity-80"
+          className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-foreground transition-opacity hover:opacity-80"
           aria-label="Projectpulse home"
         >
+          <img src="/favicon.ico" alt="ProjectPulse logo" className="h-7 w-7 rounded-md object-cover" />
           PROJECTPULSE
         </Link>
 
@@ -319,7 +320,8 @@ function HeroSection() {
               </span>
             </div>
 
-            <h1 className="text-4xl font-semibold uppercase tracking-tight text-foreground sm:text-5xl md:text-[3.5rem]">
+            <h1 className="flex items-center gap-4 text-4xl font-semibold uppercase tracking-tight text-foreground sm:text-5xl md:text-[3.5rem]">
+              <img src="/favicon.ico" alt="ProjectPulse logo" className="h-12 w-12 rounded-xl object-cover sm:h-14 sm:w-14 md:h-16 md:w-16" />
               PROJECT PULSE
             </h1>
 

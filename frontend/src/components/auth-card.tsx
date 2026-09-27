@@ -14,7 +14,12 @@ export function AuthShell({
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 max-w-5xl items-center px-5">
-          <Link to="/" className="text-sm font-semibold tracking-tight text-foreground">
+          <Link to="/" className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-foreground">
+            <img
+              src="/favicon.ico"
+              alt="ProjectPulse logo"
+              className="h-7 w-7 rounded-md object-cover"
+            />
             ProjectPulse
           </Link>
         </div>
