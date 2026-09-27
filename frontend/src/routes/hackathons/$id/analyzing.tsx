@@ -28,6 +28,7 @@ export const Route = createFileRoute("/hackathons/$id/analyzing")({
 });
 
 const POLL_MS = 2500;
+const MAX_ZERO_POLLS = 4; // after 4 polls with total=0, treat as done (no submissions)
 
 function Analyzing() {
   const { user } = useAuth();
@@ -38,6 +39,7 @@ function Analyzing() {
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const doneRef = useRef(false);
+  const zeroPollCount = useRef(0);
 
   useEffect(() => {
     if (!user) navigate({ to: "/login" });
@@ -63,8 +65,20 @@ function Analyzing() {
         setProgress(data);
 
         if (data.total > 0 && data.completed >= data.total && !doneRef.current) {
+          // Normal completion: all submissions processed
           doneRef.current = true;
           return; // stop polling — user will click "View results"
+        }
+
+        if (data.total === 0) {
+          zeroPollCount.current += 1;
+          if (zeroPollCount.current >= MAX_ZERO_POLLS && !doneRef.current) {
+            // No submissions found after several polls — treat as done
+            doneRef.current = true;
+            return;
+          }
+        } else {
+          zeroPollCount.current = 0; // reset if we later get submissions
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch progress");
@@ -85,7 +99,8 @@ function Analyzing() {
   const total = progress?.total ?? 0;
   const completed = progress?.completed ?? 0;
   const current = progress?.current ?? [];
-  const isDone = total > 0 && completed >= total;
+  const noSubmissions = progress !== null && total === 0 && zeroPollCount.current >= MAX_ZERO_POLLS;
+  const isDone = (total > 0 && completed >= total) || noSubmissions || doneRef.current;
 
   return (
     <AppShell>
@@ -103,16 +118,22 @@ function Analyzing() {
 
       <div className="mx-auto max-w-xl py-10 text-center">
         <h1 className="text-lg font-semibold tracking-tight">
-          {total === 0
+          {isDone
+            ? noSubmissions
+              ? "No submissions to analyze"
+              : "Analysis complete"
+            : total === 0
             ? "Starting analysis…"
             : `Analyzing ${Math.min(completed + 1, total)} of ${total} submissions`}
         </h1>
-        <Progress value={total ? (completed / total) * 100 : 0} className="mt-5 h-1.5" />
+        <Progress value={total ? (completed / total) * 100 : isDone ? 100 : 0} className="mt-5 h-1.5" />
         <p className="mt-3 text-xs text-muted-foreground">
           {error ? (
             <span className="text-bad">{error}</span>
           ) : isDone ? (
-            "Analysis complete."
+            noSubmissions
+              ? "No GitHub submissions were found in this hackathon. Add a CSV with valid GitHub links."
+              : "Analysis complete."
           ) : (
             "This may take a few minutes."
           )}

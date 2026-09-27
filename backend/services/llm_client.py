@@ -22,7 +22,7 @@ except ImportError:
 
 from config import settings
 
-_MODEL_NAME = "gemini-1.5-flash"
+_MODEL_NAME = "gemini-flash-latest"
 _initialized = False
 
 

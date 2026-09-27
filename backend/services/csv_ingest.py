@@ -93,7 +93,10 @@ def parse_csv_or_pasted_text(raw_text: str) -> CsvIngestResult:
     # Check if first row is a header
     header_candidate = [c.strip().lower() for c in raw_rows[0]]
     has_header = any(
-        any(k in col for k in ["team", "github", "problem", "link", "url", "statement", "id"])
+        any(k in col for k in [
+            "team", "github", "problem", "link", "url", "statement", "id",
+            "name", "project", "member", "repo", "s.no", "no", "email",
+        ])
         for col in header_candidate
     )
 
@@ -105,12 +108,12 @@ def parse_csv_or_pasted_text(raw_text: str) -> CsvIngestResult:
     if has_header:
         start_idx = 1
         for idx, col in enumerate(header_candidate):
-            if "team" in col:
-                team_col_idx = idx
-            elif "problem" in col or "statement" in col:
-                problem_col_idx = idx
-            elif "github" in col or "link" in col or "url" in col or "repo" in col:
+            if "github" in col or "link" in col or "url" in col or "repo" in col:
                 github_col_idx = idx
+            elif "problem" in col or "statement" in col or "ps" == col:
+                problem_col_idx = idx
+            elif "team" in col or "name" in col or "member" in col:
+                team_col_idx = idx
 
     valid_submissions: list[ParsedSubmission] = []
     skipped: list[dict[str, Any]] = []
@@ -124,8 +127,8 @@ def parse_csv_or_pasted_text(raw_text: str) -> CsvIngestResult:
         problem_title = cols[problem_col_idx] if len(cols) > problem_col_idx else ""
         github_link = cols[github_col_idx] if len(cols) > github_col_idx else ""
 
-        # Fallback if positional indices failed or columns were fewer
-        if not github_link:
+        # Fallback: scan EVERY cell for a GitHub URL regardless of column position
+        if not github_link or "github.com" not in github_link:
             for c in cols:
                 if "github.com" in c:
                     github_link = c

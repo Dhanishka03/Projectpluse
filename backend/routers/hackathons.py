@@ -14,6 +14,7 @@ Endpoints (in route registration order — specific paths before path params):
 
 from datetime import datetime, timezone
 from typing import Optional
+import threading
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -256,19 +257,84 @@ async def validate_csv_for_hackathon(hackathon_id: str, request: Request, db: Se
 
 
 # ---------------------------------------------------------------------------
+# POST /hackathons/{id}/upload-csv — add submissions from CSV to existing hackathon
+# ---------------------------------------------------------------------------
+
+@router.post("/{hackathon_id}/upload-csv", response_model=HackathonResponse)
+async def upload_csv_to_hackathon(hackathon_id: str, request: Request, db: Session = Depends(get_db)):
+    """Parses CSV data and appends new submissions to an existing hackathon."""
+    hackathon = _load_hackathon(hackathon_id, db)
+
+    content = await _extract_csv_content(request)
+    if not content or not content.strip():
+        raise HTTPException(status_code=422, detail="No CSV content provided.")
+
+    ingest = parse_csv_or_pasted_text(content)
+    if not ingest.valid_submissions:
+        raise HTTPException(
+            status_code=422,
+            detail=f"No valid GitHub URLs found in CSV. {ingest.rows_parsed} rows parsed, {len(ingest.skipped)} skipped."
+        )
+
+    # Build a map of existing problem statements for matching
+    ps_map: dict[str, ProblemStatement] = {
+        ps.title.lower(): ps for ps in hackathon.problem_statements
+    }
+    ps_list = list(hackathon.problem_statements)
+
+    added = 0
+    for row in ingest.valid_submissions:
+        matched_ps_id = None
+        if row.problem_statement_title:
+            row_title = row.problem_statement_title.lower()
+            for ps_title, ps_obj in ps_map.items():
+                if ps_title in row_title or row_title in ps_title:
+                    matched_ps_id = ps_obj.id
+                    break
+        if not matched_ps_id and ps_list:
+            matched_ps_id = ps_list[0].id
+
+        db.add(Submission(
+            hackathon_id=hackathon.id,
+            team_name=row.team_name,
+            project_name=row.project_name,
+            github_url=row.github_url,
+            problem_statement_id=matched_ps_id,
+            status="review",
+        ))
+        added += 1
+
+    # Reset hackathon status to draft so user can re-trigger analysis
+    hackathon.status = "draft"
+    db.commit()
+    return build_hackathon_response(_load_hackathon(hackathon_id, db))
+
+
+# ---------------------------------------------------------------------------
 # POST /hackathons/{id}/analyze — trigger pipeline
 # ---------------------------------------------------------------------------
 
-@router.post("/{hackathon_id}/analyze", response_model=HackathonResponse)
+@router.post("/{hackathon_id}/analyze", status_code=202)
 def trigger_analysis(hackathon_id: str, db: Session = Depends(get_db)):
-    """Runs the full verification pipeline synchronously over all submissions."""
-    if not db.get(Hackathon, hackathon_id):
+    """Kicks off the analysis pipeline in a background thread and returns immediately (202)."""
+    hackathon = db.get(Hackathon, hackathon_id)
+    if not hackathon:
         raise HTTPException(status_code=404, detail="Hackathon not found")
 
     from services.pipeline import run_hackathon_pipeline
-    run_hackathon_pipeline(hackathon_id, db)
+    from database import SessionLocal
 
-    return build_hackathon_response(_load_hackathon(hackathon_id, db))
+    def _run():
+        """Run pipeline in its own DB session so the router session can close."""
+        bg_db = SessionLocal()
+        try:
+            run_hackathon_pipeline(hackathon_id, bg_db)
+        finally:
+            bg_db.close()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"status": "started", "hackathonId": hackathon_id}
 
 
 # ---------------------------------------------------------------------------

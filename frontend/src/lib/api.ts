@@ -21,6 +21,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`API ${res.status}: ${text}`);
   }
+  // 204 No Content or empty body — return undefined cast to T
+  const ct = res.headers.get("content-type") ?? "";
+  if (res.status === 204 || !ct.includes("application/json")) {
+    return undefined as unknown as T;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -76,8 +81,15 @@ export function validateCsv(csvData: string): Promise<ValidationResult> {
 // Analysis
 // ---------------------------------------------------------------------------
 
-export function triggerAnalysis(hackathonId: string): Promise<Hackathon> {
-  return request<Hackathon>(`/hackathons/${hackathonId}/analyze`, { method: "POST" });
+export function triggerAnalysis(hackathonId: string): Promise<void> {
+  return request<void>(`/hackathons/${hackathonId}/analyze`, { method: "POST" });
+}
+
+export function uploadCsv(hackathonId: string, csvData: string): Promise<Hackathon> {
+  return request<Hackathon>(`/hackathons/${hackathonId}/upload-csv`, {
+    method: "POST",
+    body: JSON.stringify({ csv_data: csvData }),
+  });
 }
 
 export interface AnalysisProgress {

@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpDown, ChevronRight, FileSpreadsheet, Loader2, Upload, Zap } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { ClaimsBar, IssueCount, RelevanceBar, StatusBadge } from "@/components/verifier/pills";
-import { getHackathon, listSubmissions } from "@/lib/api";
+import { getHackathon, listSubmissions, uploadCsv, triggerAnalysis } from "@/lib/api";
 import type { Hackathon, Submission } from "@/lib/types";
 import {
   Select,
@@ -96,6 +96,52 @@ function Dashboard() {
   const [sort, setSort] = useState<SortKey>("relevanceScore");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
+  // --- CSV Upload state ---
+  const [showUpload, setShowUpload] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleCsvFile(file: File) {
+    setCsvFileName(file.name);
+    const text = await file.text();
+    setCsvText(text);
+    setUploadError(null);
+  }
+
+  // Quick preview — first 4 data rows, first 4 columns
+  const csvPreviewRows = useMemo(() => {
+    if (!csvText.trim()) return [];
+    return csvText
+      .trim()
+      .split(/\r?\n/)
+      .slice(0, 5)
+      .map((line) => line.split(",").slice(0, 4).map((c) => c.replace(/^"|"$/g, "").trim()));
+  }, [csvText]);
+
+  async function handleUploadAndAnalyze() {
+    if (!csvText.trim()) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const updated = await uploadCsv(id, csvText);
+      setHackathon(updated);
+      setRows([]);
+      setCsvText("");
+      setCsvFileName(null);
+      setShowUpload(false);
+      // Kick off analysis in background
+      void navigate({ to: "/hackathons/$id/analyzing", params: { id } });
+      triggerAnalysis(id).catch(() => {});
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+      setUploading(false);
+    }
+  }
+
   const filtered = useMemo(() => {
     const list = rows.filter(
       (s) =>
@@ -154,13 +200,39 @@ function Dashboard() {
             </p>
           )}
         </div>
-        {hackathon?.status === "analyzing" && (
-          <Button asChild variant="outline" size="sm">
-            <Link to="/hackathons/$id/analyzing" params={{ id }}>
-              View analysis progress
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {hackathon?.status === "analyzing" && (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/hackathons/$id/analyzing" params={{ id }}>
+                View analysis progress
+              </Link>
+            </Button>
+          )}
+          {hackathon && hackathon.status !== "analyzing" && (
+            <Button
+              size="sm"
+              variant={showUpload ? "secondary" : "outline"}
+              onClick={() => { setShowUpload((v) => !v); setUploadError(null); }}
+              id="toggle-csv-upload"
+            >
+              <Upload className="mr-1.5 size-3.5" />
+              {rows.length === 0 ? "Upload CSV" : "Upload more"}
+            </Button>
+          )}
+          {hackathon && rows.length > 0 && hackathon.status !== "analyzing" && (
+            <Button
+              size="sm"
+              onClick={() => {
+                void navigate({ to: "/hackathons/$id/analyzing", params: { id } });
+                triggerAnalysis(id).catch(() => {});
+              }}
+              id="re-analyze-btn"
+            >
+              <Zap className="mr-1.5 size-3.5" />
+              Re-analyze
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -169,6 +241,110 @@ function Dashboard() {
         <StatCard value={hackathon?.stats.needsReview ?? 0} label="Need review" />
         <StatCard value={hackathon?.stats.failed ?? 0} label="Failed" />
       </div>
+
+      {/* ---------- CSV Upload Panel ---------- */}
+      {(showUpload || rows.length === 0) && hackathon && hackathon.status !== "analyzing" && (
+        <div className="mt-6 rounded-md border border-border bg-card p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              {rows.length === 0 ? "Upload a submissions CSV to get started" : "Upload additional submissions"}
+            </p>
+            {rows.length > 0 && (
+              <button
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => { setShowUpload(false); setCsvText(""); setCsvFileName(null); }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
+          {/* Drop zone */}
+          <label
+            id="detail-csv-dropzone"
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) void handleCsvFile(f);
+            }}
+            className={cn(
+              "flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed px-4 py-8 text-center transition-colors",
+              isDragging ? "border-primary bg-primary/10" : "border-border hover:border-ring/60"
+            )}
+          >
+            {csvFileName ? (
+              <>
+                <FileSpreadsheet className="mb-2 size-5 text-primary" />
+                <span className="text-sm font-medium">{csvFileName}</span>
+                <span className="mt-1 text-xs text-muted-foreground">Click or drop another file to replace</span>
+              </>
+            ) : (
+              <>
+                <Upload className="mb-2 size-5 text-muted-foreground" />
+                <span className="text-sm">Drop a CSV here or click to upload</span>
+                <span className="mt-1 font-mono text-[11px] text-muted-foreground">id, teamname, problem statement, github link</span>
+              </>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleCsvFile(f);
+              }}
+            />
+          </label>
+
+          {/* Preview table */}
+          {csvPreviewRows.length > 1 && (
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full min-w-max text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                    {csvPreviewRows[0]?.map((h, i) => (
+                      <th key={i} className="px-3 py-1.5 font-medium whitespace-nowrap">{h || `Col ${i + 1}`}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvPreviewRows.slice(1).map((cols, ri) => (
+                    <tr key={ri} className="border-b border-border/60 last:border-0">
+                      {cols.map((cell, ci) => (
+                        <td key={ci} className="px-3 py-1.5 max-w-40 truncate" title={cell}>{cell || <span className="text-muted-foreground">—</span>}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {uploadError && (
+            <p className="rounded-md border border-border bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950 dark:text-red-400">
+              {uploadError}
+            </p>
+          )}
+
+          <Button
+            size="sm"
+            disabled={!csvText.trim() || uploading}
+            onClick={() => { void handleUploadAndAnalyze(); }}
+            id="upload-and-analyze-btn"
+          >
+            {uploading ? (
+              <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Uploading…</>
+            ) : (
+              <><Zap className="mr-1.5 size-3.5" />Upload &amp; Analyze</>
+            )}
+          </Button>
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5">
         <Select value={ps} onValueChange={setPs}>

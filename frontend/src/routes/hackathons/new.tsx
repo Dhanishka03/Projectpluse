@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Upload, Link as LinkIcon, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Trash2, Upload, Loader2, FileSpreadsheet, FileUp } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createHackathon, triggerAnalysis } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/hackathons/new")({
   head: () => ({
@@ -29,66 +30,178 @@ export const Route = createFileRoute("/hackathons/new")({
   component: NewHackathon,
 });
 
-interface ParsedRow {
-  id: string;
-  team: string;
-  problem: string;
-  github: string;
-}
-
 interface ParsedResult {
-  rows: ParsedRow[];
+  headers: string[];      // actual column headers from CSV
+  rawRows: string[][];    // raw cell values, parallel to headers
   total: number;
   validUrls: number;
   missing: number;
+  githubColIdx: number;   // which column index contains the github link (-1 if none)
 }
 
-const GITHUB_RE = /^https?:\/\/(www\.)?github\.com\/[^/]+\/[^/]+/;
+const GITHUB_RE = /https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)/i;
 
-function parseRows(raw: string): ParsedResult | null {
-  const lines = raw
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .filter((l) => !/^id\s*,/i.test(l));
-  if (lines.length === 0) return null;
+function cleanGithubUrl(raw: string): string {
+  if (!raw) return "";
+  const match = raw.trim().match(GITHUB_RE);
+  if (!match) return "";
+  const owner = match[1];
+  let repo = match[2];
+  if (repo.endsWith(".git")) repo = repo.slice(0, -4);
+  return `https://github.com/${owner}/${repo}`;
+}
 
-  const rows: ParsedRow[] = [];
-  let validUrls = 0;
+function parseCsvTokens(text: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentCell = "";
+  let insideQuotes = false;
 
-  for (const line of lines) {
-    const cols = line.split(",").map((c) => c.trim());
-    const url = cols[3] ?? "";
-    if (GITHUB_RE.test(url)) validUrls++;
-    rows.push({
-      id: cols[0] ?? "",
-      team: cols[1] ?? "",
-      problem: cols[2] ?? "",
-      github: url,
-    });
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentCell += '"';
+        i++; // skip escaped quote
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === "," && !insideQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = "";
+    } else if ((char === "\r" || char === "\n") && !insideQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        i++;
+      }
+      currentRow.push(currentCell.trim());
+      if (currentRow.some((c) => c.length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentCell = "";
+    } else {
+      currentCell += char;
+    }
   }
 
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    if (currentRow.some((c) => c.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
+function parseRows(raw: string): ParsedResult | null {
+  if (!raw || !raw.trim()) return null;
+  const allRows = parseCsvTokens(raw);
+  if (allRows.length === 0) return null;
+
+  // Detect if first row is a header
+  const firstRowLower = allRows[0].map((c) => c.toLowerCase());
+  const isHeader = firstRowLower.some((c) =>
+    c.includes("team") ||
+    c.includes("github") ||
+    c.includes("url") ||
+    c.includes("problem") ||
+    c.includes("repo") ||
+    c.includes("link") ||
+    c.includes("statement") ||
+    c.includes("name") ||
+    c.includes("email") ||
+    c.includes("member") ||
+    c.includes("size") ||
+    c === "id" ||
+    c === "s.no" ||
+    c === "no"
+  );
+
+  const headers = isHeader ? allRows[0] : allRows[0].map((_, i) => `Column ${i + 1}`);
+  const dataRows = isHeader ? allRows.slice(1) : allRows;
+  if (dataRows.length === 0) return null;
+
+  // Normalize all rows to the same column count
+  const maxCols = Math.max(headers.length, ...dataRows.map((r) => r.length));
+  const normalizedRows = dataRows.map((r) => {
+    const padded = [...r];
+    while (padded.length < maxCols) padded.push("");
+    return padded;
+  });
+
+  // Find which column has GitHub URLs — check header first, then scan data
+  let githubColIdx = -1;
+  firstRowLower.forEach((col, idx) => {
+    if (col.includes("github") || col.includes("repo") || col.includes("link")) {
+      githubColIdx = idx;
+    }
+  });
+  if (githubColIdx === -1) {
+    for (let col = 0; col < maxCols; col++) {
+      if (normalizedRows.some((r) => GITHUB_RE.test(r[col] ?? ""))) {
+        githubColIdx = col;
+        break;
+      }
+    }
+  }
+
+  // Count valid github URLs for submit-button gate
+  let validUrls = 0;
+  let missing = 0;
+  normalizedRows.forEach((cols) => {
+    let url = githubColIdx !== -1 ? cols[githubColIdx] ?? "" : "";
+    if (!url) {
+      url = cols.find((cell) => GITHUB_RE.test(cell)) ?? "";
+    }
+    const clean = cleanGithubUrl(url);
+    if (clean) validUrls++;
+    else missing++;
+  });
+
   return {
-    rows,
-    total: lines.length,
+    headers,
+    rawRows: normalizedRows,
+    total: normalizedRows.length,
     validUrls,
-    missing: lines.length - validUrls,
+    missing,
+    githubColIdx,
   };
 }
 
-/** Generate mock CSV rows from a Google Sheet URL (simulated). */
-function mockSheetImport(): string {
-  return [
-    "id, teamname, problem statement, github link",
-    "1, Team Alpha, Automating Repetitive Tasks, https://github.com/team-alpha/task-manager",
-    "2, Team Nova, Automating Repetitive Tasks, https://github.com/team-nova/inbox-triage",
-    "3, Team Vertex, Accessible Public Data, https://github.com/team-vertex/permit-explorer",
-    "4, Team Halcyon, Accessible Public Data, https://github.com/team-halcyon/budget-lens",
-    "5, Team Quanta, Developer Productivity, https://github.com/team-quanta/pr-context",
-    "6, Team Orbit, Developer Productivity, https://github.com/team-orbit/snippet-vault",
-    "7, Team Pinecone, Automating Repetitive Tasks, https://github.com/team-pinecone/standup-recap",
-    "8, Team Marrow, Developer Productivity, https://github.com/team-marrow/docs-drift",
-  ].join("\n");
+// ---- Problem-statement CSV parser ----
+interface ParsedProblemStatement {
+  title: string;
+  description: string;
+}
+
+function parseProblemStatementsCsv(raw: string): ParsedProblemStatement[] {
+  if (!raw || !raw.trim()) return [];
+  const allRows = parseCsvTokens(raw);
+  if (allRows.length < 2) return [];
+
+  const headerRow = allRows[0].map((h) => h.toLowerCase().trim());
+
+  // Find title column
+  let titleIdx = headerRow.findIndex((h) =>
+    h.includes("title") || h.includes("name") || h.includes("problem") || h === "ps"
+  );
+  if (titleIdx === -1) titleIdx = 0;
+
+  // Find description column
+  let descIdx = headerRow.findIndex((h) =>
+    h.includes("desc") || h.includes("statement") || h.includes("detail") || h.includes("about")
+  );
+  if (descIdx === -1) descIdx = titleIdx === 0 ? 1 : 0;
+
+  return allRows.slice(1)
+    .map((row) => ({
+      title: (row[titleIdx] ?? "").trim(),
+      description: (row[descIdx] ?? "").trim(),
+    }))
+    .filter((ps) => ps.title.length > 0);
 }
 
 function NewHackathon() {
@@ -104,10 +217,13 @@ function NewHackathon() {
   const [end, setEnd] = useState("");
   const [statements, setStatements] = useState([{ title: "", description: "" }]);
   const [rows, setRows] = useState("");
-  const [sheetUrl, setSheetUrl] = useState("");
-  const [sheetImported, setSheetImported] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [psFileName, setPsFileName] = useState<string | null>(null);
+  const [psImportCount, setPsImportCount] = useState<number | null>(null);
+  const psFileInputRef = useRef<HTMLInputElement>(null);
 
   const parsed = useMemo(() => parseRows(rows), [rows]);
   const canSubmit = !submitting && name.trim() !== "" && (parsed?.validUrls ?? 0) > 0;
@@ -117,17 +233,32 @@ function NewHackathon() {
   }
 
   async function handleFile(file: File) {
-    setRows(await file.text());
-    setSheetImported(false);
+    setFileName(file.name);
+    // If hackathon name is empty, auto-populate from file name
+    if (!name.trim()) {
+      const suggestedName = file.name
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      setName(suggestedName);
+    }
+    const content = await file.text();
+    setRows(content);
   }
 
-  function handleSheetImport() {
-    if (!sheetUrl.trim()) return;
-    setRows(mockSheetImport());
-    setSheetImported(true);
-  }
 
-  const previewRows = parsed?.rows.slice(0, 5) ?? [];
+  async function handlePsFile(file: File) {
+    const content = await file.text();
+    const parsed = parseProblemStatementsCsv(content);
+    if (parsed.length === 0) return;
+    // Merge: if the only entry is a blank placeholder, replace it; otherwise append
+    setStatements((prev) => {
+      const isOnlyBlank = prev.length === 1 && !prev[0].title && !prev[0].description;
+      return isOnlyBlank ? parsed : [...prev, ...parsed];
+    });
+    setPsFileName(file.name);
+    setPsImportCount(parsed.length);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -203,7 +334,44 @@ function NewHackathon() {
         </div>
 
         <div className="space-y-3">
-          <Label>Problem statements</Label>
+          <div className="flex items-center justify-between">
+            <Label>Problem statements</Label>
+            <div className="flex items-center gap-2">
+              {psImportCount !== null && psFileName && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  <FileSpreadsheet className="size-3" />
+                  {psImportCount} imported from {psFileName}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => psFileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-ring/60 hover:text-foreground transition-colors"
+              >
+                <FileUp className="size-3.5" />
+                Import from CSV
+              </button>
+              <input
+                ref={psFileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handlePsFile(f);
+                }}
+              />
+            </div>
+          </div>
+
+          {/* CSV format hint shown when no statements have been filled yet */}
+          {statements.length === 1 && !statements[0].title && !statements[0].description && (
+            <p className="text-[11px] font-mono text-muted-foreground">
+              CSV format: <span className="text-foreground">title, description</span> (one problem statement per row)
+            </p>
+          )}
+
           {statements.map((s, i) => (
             <div key={i} className="space-y-2 rounded-md border border-border bg-card p-3">
               <div className="flex items-center gap-2">
@@ -248,17 +416,52 @@ function NewHackathon() {
           {/* CSV file upload */}
           <label
             id="csv-dropzone"
-            className="flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-card px-4 py-8 text-center transition-colors hover:border-ring/60"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDragging(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDragging(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDragging(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) void handleFile(f);
+            }}
+            className={cn(
+              "flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed px-4 py-8 text-center transition-colors",
+              isDragging
+                ? "border-primary bg-primary/10"
+                : "border-border bg-card hover:border-ring/60"
+            )}
           >
-            <Upload className="mb-2 size-5 text-muted-foreground" />
-            <span className="text-sm">Drop a CSV here or click to upload</span>
-            <span className="mt-1 font-mono text-[11px] text-muted-foreground">
-              id, teamname, problem statement, github link
-            </span>
+            {fileName ? (
+              <>
+                <FileSpreadsheet className="mb-2 size-6 text-primary" />
+                <span className="text-sm font-medium text-foreground">{fileName}</span>
+                <span className="mt-1 text-xs text-muted-foreground">Click or drop another file to replace</span>
+              </>
+            ) : (
+              <>
+                <Upload className="mb-2 size-5 text-muted-foreground" />
+                <span className="text-sm">Drop a CSV here or click to upload</span>
+                <span className="mt-1 font-mono text-[11px] text-muted-foreground">
+                  id, teamname, problem statement, github link
+                </span>
+              </>
+            )}
             <input
               type="file"
               accept=".csv,text/csv"
               className="hidden"
+              onClick={(e) => {
+                (e.target as HTMLInputElement).value = "";
+              }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void handleFile(f);
@@ -266,82 +469,45 @@ function NewHackathon() {
             />
           </label>
 
-          {/* Separator */}
-          <div className="flex items-center gap-3">
-            <span className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">or</span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
-          {/* Google Sheet URL */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <LinkIcon className="size-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Import from Google Sheet</span>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="sheet-url"
-                value={sheetUrl}
-                onChange={(e) => {
-                  setSheetUrl(e.target.value);
-                  setSheetImported(false);
-                }}
-                placeholder="https://docs.google.com/spreadsheets/d/..."
-                className="font-mono text-xs"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!sheetUrl.trim()}
-                onClick={handleSheetImport}
-              >
-                Import
-              </Button>
-            </div>
-            {sheetImported && (
-              <p className="text-xs text-ok">✓ Sheet imported successfully</p>
-            )}
-          </div>
-
-          {/* Raw paste area */}
-          <Textarea
-            id="rows"
-            rows={5}
-            value={rows}
-            onChange={(e) => {
-              setRows(e.target.value);
-              setSheetImported(false);
-            }}
-            placeholder="…or paste rows here"
-            className="font-mono text-xs"
-          />
-
-          {/* Preview table */}
-          {parsed && previewRows.length > 0 && (
-            <div className="overflow-hidden rounded-md border border-border bg-card">
-              <table className="w-full text-sm">
+          {/* Preview table — renders actual CSV columns as-is */}
+          {parsed && parsed.rawRows.length > 0 && (
+            <div className="overflow-x-auto overflow-hidden rounded-md border border-border bg-card">
+              <table className="w-full min-w-max text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="px-3 py-2 font-medium">ID</th>
-                    <th className="px-3 py-2 font-medium">Team Name</th>
-                    <th className="px-3 py-2 font-medium">Problem Statement</th>
-                    <th className="px-3 py-2 font-medium">GitHub Link</th>
+                  <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
+                    {parsed.headers.map((header, colIdx) => (
+                      <th
+                        key={colIdx}
+                        className={cn(
+                          "px-3 py-2 font-medium whitespace-nowrap",
+                          colIdx === parsed.githubColIdx && "text-primary"
+                        )}
+                      >
+                        {header || `Col ${colIdx + 1}`}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {previewRows.map((row, i) => (
+                  {parsed.rawRows.slice(0, 5).map((cols, rowIdx) => (
                     <tr
-                      key={i}
+                      key={rowIdx}
                       className="border-b border-border/70 last:border-0 text-xs"
                     >
-                      <td className="px-3 py-1.5 font-mono tabular-nums">{row.id}</td>
-                      <td className="px-3 py-1.5">{row.team}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{row.problem}</td>
-                      <td className="px-3 py-1.5 font-mono text-primary truncate max-w-48">
-                        {row.github || <span className="text-muted-foreground">—</span>}
-                      </td>
+                      {cols.map((cell, colIdx) => (
+                        <td
+                          key={colIdx}
+                          className={cn(
+                            "px-3 py-1.5 max-w-48 truncate",
+                            colIdx === parsed.githubColIdx
+                              ? "font-mono text-primary"
+                              : "text-foreground"
+                          )}
+                          title={cell}
+                        >
+                          {cell || <span className="text-muted-foreground">—</span>}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
@@ -375,16 +541,32 @@ function NewHackathon() {
           </div>
         )}
 
-        <Button type="submit" size="sm" disabled={!canSubmit} id="create-hackathon-submit">
-          {submitting ? (
-            <>
-              <Loader2 className="mr-2 size-3.5 animate-spin" />
-              Creating…
-            </>
-          ) : (
-            "Validate & continue"
+        <div className="space-y-2">
+          <Button type="submit" size="sm" disabled={!canSubmit} id="create-hackathon-submit">
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 size-3.5 animate-spin" />
+                Creating…
+              </>
+            ) : (
+              "Validate & continue"
+            )}
+          </Button>
+
+          {!canSubmit && !submitting && (
+            <p className="text-xs text-muted-foreground">
+              {!name.trim() && !rows
+                ? "Please enter a hackathon name and upload a CSV."
+                : !name.trim()
+                ? "Please enter a hackathon name above."
+                : !rows
+                ? "Please upload a CSV file with team submissions."
+                : parsed && parsed.validUrls === 0
+                ? "No valid GitHub repository links found in the CSV (e.g. https://github.com/owner/repo)."
+                : null}
+            </p>
           )}
-        </Button>
+        </div>
       </form>
     </AppShell>
   );
