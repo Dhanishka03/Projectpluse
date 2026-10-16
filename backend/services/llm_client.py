@@ -1,10 +1,11 @@
-"""
+﻿"""
 llm_client.py — Single point of contact for all LLM calls in Projectpulse.
 
 RULE: All LLM calls MUST go through this file — nowhere else.
 
 Functions:
   - extract_claims(readme_text: str) -> list[str]
+  - identify_problem_statement(readme_text, problem_statements) -> str | None
   - judge_claim(claim: str, evidence: list[dict]) -> tuple[str, str]
     Returns (status, one_sentence_finding) where status is
     "verified" | "partially_verified" | "not_found".
@@ -44,7 +45,6 @@ def _init_gemini() -> bool:
         return False
 
 
-
 def _clean_json_fence(text: str) -> str:
     """Removes markdown ```json ... ``` code fences from LLM responses."""
     text = text.strip()
@@ -76,17 +76,15 @@ def _heuristic_extract_claims(readme_text: str) -> list[str]:
         if stripped.startswith("#") and in_features_section:
             in_features_section = False
 
-        # Bullet items
         if stripped.startswith(("-", "*", "+", "•")) or re.match(r"^\d+[\.\)]\s+", stripped):
             item = re.sub(r"^[-*+•\d\.\)\s]+", "", stripped).strip()
-            item = re.sub(r"\[.*?\]\(.*?\)", "", item).strip()  # remove markdown links
+            item = re.sub(r"\[.*?\]\(.*?\)", "", item).strip()
             item = re.sub(r"[*_`]", "", item).strip()
             if 10 <= len(item) <= 120 and not item.startswith("http"):
                 claims.append(item)
                 if len(claims) >= 8:
                     break
 
-    # If still empty, take non-header declarative sentences
     if not claims:
         for line in lines:
             stripped = line.strip()
@@ -101,7 +99,7 @@ def _heuristic_extract_claims(readme_text: str) -> list[str]:
 def extract_claims(readme_text: str) -> list[str]:
     """
     Extracts high-level verifiable feature/technical claims made in the README.
-    Returns a list of short claim strings (e.g. 'Supports Gmail OAuth integration').
+    Returns a list of short claim strings.
     """
     if not readme_text or not readme_text.strip():
         return []
@@ -109,22 +107,17 @@ def extract_claims(readme_text: str) -> list[str]:
     if not _init_gemini():
         return _heuristic_extract_claims(readme_text)
 
-    prompt = f"""
-You are an expert technical auditor analyzing a hackathon project README.
-Extract the key functional and technical claims made by the project creators about what the system builds, does, or integrates with.
-
-Rules:
-1. Return ONLY a valid JSON array of short strings (e.g. ["OAuth authentication", "PostgreSQL database integration", "PDF generation"]).
-2. Extract between 3 and 10 concrete, verifiable claims.
-3. Keep each claim concise (under 15 words).
-4. Do NOT output any markdown formatting other than raw JSON or json code fences.
-5. If the README has no features or claims, return [].
-
-README text:
-\"\"\"
-{readme_text[:6000]}
-\"\"\"
-"""
+    prompt = (
+        "You are an expert technical auditor analyzing a hackathon project README.\n"
+        "Extract the key functional and technical claims made by the project creators.\n\n"
+        "Rules:\n"
+        "1. Return ONLY a valid JSON array of short strings.\n"
+        "2. Extract between 3 and 10 concrete, verifiable claims.\n"
+        "3. Keep each claim concise (under 15 words).\n"
+        "4. Do NOT output any markdown formatting other than raw JSON or json code fences.\n"
+        "5. If the README has no features or claims, return [].\n\n"
+        f"README text:\n\"\"\"\n{readme_text[:6000]}\n\"\"\""
+    )
     model = genai.GenerativeModel(_MODEL_NAME)
 
     for attempt in range(2):
@@ -134,22 +127,79 @@ README text:
             cleaned = _clean_json_fence(raw_text)
             parsed = json.loads(cleaned)
             if isinstance(parsed, list):
-                # Ensure all elements are non-empty strings
                 claims = [str(c).strip() for c in parsed if str(c).strip()]
                 return claims
         except Exception:
             if attempt == 1:
-                # Fallback on second failure
                 return _heuristic_extract_claims(readme_text)
 
     return _heuristic_extract_claims(readme_text)
+
+
+def identify_problem_statement(
+    readme_text: str,
+    problem_statements: list[dict],
+) -> "str | None":
+    """
+    Uses the LLM to identify which problem statement the team README is addressing.
+
+    More reliable than cosine similarity when all PS titles share the same broad
+    domain (e.g. all are AI-for-social-good). The LLM discriminates by reading
+    domain keywords, project goals, and technology described in the README.
+
+    Returns the id of the best-matching problem statement, or None on failure
+    (caller should fall back to cosine similarity).
+    """
+    if not readme_text or not readme_text.strip():
+        return None
+    if not problem_statements:
+        return None
+    if len(problem_statements) == 1:
+        return problem_statements[0]["id"]
+
+    if not _init_gemini():
+        return None
+
+    ps_lines = "\n".join(
+        f'{i + 1}. [ID: {ps["id"]}] {ps["title"]}'
+        + (f' -- {ps["description"][:200]}' if ps.get("description") else "")
+        for i, ps in enumerate(problem_statements)
+    )
+
+    prompt = (
+        "You are a hackathon judge. Identify which ONE problem statement the team README is solving.\n\n"
+        f"Problem statements:\n{ps_lines}\n\n"
+        f"Team README (first 4000 chars):\n\"\"\"\n{readme_text[:4000]}\n\"\"\"\n\n"
+        "Instructions:\n"
+        "- Match based on: domain (health/agriculture/environment/governance/etc.), project goals, keywords, technology.\n"
+        "- Every team solves exactly one problem statement -- pick the closest match.\n"
+        '- Return ONLY raw JSON: {"id": "<matching_id>"}\n'
+        '- If no match, return {"id": null}\n'
+        "- No explanation, no markdown."
+    )
+
+    model = genai.GenerativeModel(_MODEL_NAME)
+    for attempt in range(2):
+        try:
+            response = model.generate_content(prompt)
+            raw_text = response.text if response else ""
+            cleaned = _clean_json_fence(raw_text)
+            parsed = json.loads(cleaned)
+            matched_id = parsed.get("id")
+            if matched_id and any(ps["id"] == matched_id for ps in problem_statements):
+                return str(matched_id)
+        except Exception:
+            if attempt == 1:
+                break
+
+    return None
 
 
 def judge_claim(claim: str, evidence: list[dict[str, Any]]) -> tuple[str, str]:
     """
     Judges ambiguous claims where candidate evidence exists but is not a conclusive
     code+dependency match.
-    
+
     Returns:
       (status, finding)
       status: "verified" | "partially_verified" | "not_found"
@@ -163,7 +213,6 @@ def judge_claim(claim: str, evidence: list[dict[str, Any]]) -> tuple[str, str]:
         return "not_found", f"No active code references or dependencies found supporting '{claim}'."
 
     if not _init_gemini():
-        # Heuristic judgment
         has_code = any(e.get("type") == "code" for e in found_items)
         has_dep = any(e.get("type") == "dependency" for e in found_items)
         if has_code and has_dep:
@@ -179,26 +228,18 @@ def judge_claim(claim: str, evidence: list[dict[str, Any]]) -> tuple[str, str]:
         for e in found_items[:8]
     )
 
-    prompt = f"""
-You are an expert technical judge verifying a hackathon claim against repository evidence.
-
-Claim: "{claim}"
-
-Candidate evidence found in repository:
-{evidence_summary}
-
-Determine the verification status of this claim.
-Options for status:
-- "verified": The evidence strongly demonstrates that this claim is implemented.
-- "partially_verified": Evidence of the technology/logic exists, but the complete feature appears partial, mocked, or overstated. (Bias toward partially_verified when evidence is ambiguous).
-- "not_found": The evidence does not meaningfully support this claim.
-
-Return ONLY a JSON object:
-{{
-  "status": "verified" | "partially_verified" | "not_found",
-  "finding": "One concise sentence explaining the judgment for human judges."
-}}
-"""
+    prompt = (
+        "You are an expert technical judge verifying a hackathon claim against repository evidence.\n\n"
+        f'Claim: "{claim}"\n\n'
+        f"Candidate evidence found in repository:\n{evidence_summary}\n\n"
+        "Determine the verification status of this claim.\n"
+        "Options:\n"
+        '- "verified": Evidence strongly demonstrates implementation.\n'
+        '- "partially_verified": Evidence exists but feature appears partial/mocked/overstated.\n'
+        '- "not_found": Evidence does not support this claim.\n\n'
+        "Return ONLY a JSON object:\n"
+        '{"status": "verified" | "partially_verified" | "not_found", "finding": "One concise sentence."}'
+    )
     model = genai.GenerativeModel(_MODEL_NAME)
 
     for attempt in range(2):

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Upload, Loader2, FileSpreadsheet, FileUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, Upload, Loader2, FileSpreadsheet } from "lucide-react";
 import { AppShell, Crumbs } from "@/components/verifier/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,38 +171,7 @@ function parseRows(raw: string): ParsedResult | null {
   };
 }
 
-// ---- Problem-statement CSV parser ----
-interface ParsedProblemStatement {
-  title: string;
-  description: string;
-}
 
-function parseProblemStatementsCsv(raw: string): ParsedProblemStatement[] {
-  if (!raw || !raw.trim()) return [];
-  const allRows = parseCsvTokens(raw);
-  if (allRows.length < 2) return [];
-
-  const headerRow = allRows[0].map((h) => h.toLowerCase().trim());
-
-  // Find title column
-  let titleIdx = headerRow.findIndex((h) =>
-    h.includes("title") || h.includes("name") || h.includes("problem") || h === "ps"
-  );
-  if (titleIdx === -1) titleIdx = 0;
-
-  // Find description column
-  let descIdx = headerRow.findIndex((h) =>
-    h.includes("desc") || h.includes("statement") || h.includes("detail") || h.includes("about")
-  );
-  if (descIdx === -1) descIdx = titleIdx === 0 ? 1 : 0;
-
-  return allRows.slice(1)
-    .map((row) => ({
-      title: (row[titleIdx] ?? "").trim(),
-      description: (row[descIdx] ?? "").trim(),
-    }))
-    .filter((ps) => ps.title.length > 0);
-}
 
 function NewHackathon() {
   const { user } = useAuth();
@@ -221,9 +190,6 @@ function NewHackathon() {
   const [isDragging, setIsDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [psFileName, setPsFileName] = useState<string | null>(null);
-  const [psImportCount, setPsImportCount] = useState<number | null>(null);
-  const psFileInputRef = useRef<HTMLInputElement>(null);
 
   const parsed = useMemo(() => parseRows(rows), [rows]);
   const canSubmit = !submitting && name.trim() !== "" && (parsed?.validUrls ?? 0) > 0;
@@ -247,18 +213,6 @@ function NewHackathon() {
   }
 
 
-  async function handlePsFile(file: File) {
-    const content = await file.text();
-    const parsed = parseProblemStatementsCsv(content);
-    if (parsed.length === 0) return;
-    // Merge: if the only entry is a blank placeholder, replace it; otherwise append
-    setStatements((prev) => {
-      const isOnlyBlank = prev.length === 1 && !prev[0].title && !prev[0].description;
-      return isOnlyBlank ? parsed : [...prev, ...parsed];
-    });
-    setPsFileName(file.name);
-    setPsImportCount(parsed.length);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -334,43 +288,7 @@ function NewHackathon() {
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label>Problem statements</Label>
-            <div className="flex items-center gap-2">
-              {psImportCount !== null && psFileName && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                  <FileSpreadsheet className="size-3" />
-                  {psImportCount} imported from {psFileName}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => psFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-ring/60 hover:text-foreground transition-colors"
-              >
-                <FileUp className="size-3.5" />
-                Import from CSV
-              </button>
-              <input
-                ref={psFileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handlePsFile(f);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* CSV format hint shown when no statements have been filled yet */}
-          {statements.length === 1 && !statements[0].title && !statements[0].description && (
-            <p className="text-[11px] font-mono text-muted-foreground">
-              CSV format: <span className="text-foreground">title, description</span> (one problem statement per row)
-            </p>
-          )}
+          <Label>Problem statements</Label>
 
           {statements.map((s, i) => (
             <div key={i} className="space-y-2 rounded-md border border-border bg-card p-3">

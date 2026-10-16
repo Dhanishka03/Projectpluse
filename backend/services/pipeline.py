@@ -21,10 +21,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from models import Claim, Evidence, Hackathon, Issue, ProblemStatement, Submission
-from services.embeddings import compute_relevance_score
+from services.embeddings import compute_relevance_score, cosine_similarity, deserialize_embedding, embed
 from services.evidence_search import search_evidence_for_claim
 from services.github_client import fetch_repository_bundle
-from services.llm_client import extract_claims
+from services.llm_client import extract_claims, identify_problem_statement
 from services.verification import verify_claim
 
 # In-memory progress tracker keyed by hackathon_id
@@ -89,10 +89,57 @@ def analyze_submission(submission_id: str, db: Session) -> None:
     # 2. Extract claims from README
     extracted_claim_strings = extract_claims(bundle.readme_text)
 
-    # 3. Compute relevance score against problem statement
-    ps_title = sub.problem_statement.title if sub.problem_statement else "General Hackathon"
-    ps_desc = sub.problem_statement.description if sub.problem_statement else ""
-    ps_emb = sub.problem_statement.embedding if sub.problem_statement else None
+    # 3. Identify which problem statement this submission is solving.
+    #
+    #    Strategy (two-step):
+    #      a) Ask the LLM to read the README and pick the best PS from the full
+    #         list — reliable even when all 4 PS titles share the same broad domain
+    #         (e.g. all "AI for social good"). The LLM discriminates by understanding
+    #         domain keywords, project goals, and technology described.
+    #      b) Fall back to cosine similarity only when the LLM call fails/returns None.
+    ps_stmt = select(ProblemStatement).where(
+        ProblemStatement.hackathon_id == sub.hackathon_id
+    )
+    all_ps = db.scalars(ps_stmt).all()
+
+    best_ps: ProblemStatement | None = None
+    if all_ps:
+        # Step a: LLM-based identification
+        ps_dicts = [
+            {"id": ps.id, "title": ps.title, "description": ps.description or ""}
+            for ps in all_ps
+        ]
+        llm_matched_id = identify_problem_statement(bundle.readme_text, ps_dicts)
+
+        if llm_matched_id:
+            best_ps = next((ps for ps in all_ps if ps.id == llm_matched_id), None)
+
+        # Step b: cosine similarity fallback
+        if best_ps is None:
+            claims_text = ". ".join(extracted_claim_strings[:6])
+            readme_summary = f"{bundle.readme_text[:1200]}. {claims_text}"
+            sub_vec = embed(readme_summary)
+
+            best_score = -1.0
+            for ps_obj in all_ps:
+                ps_vec = deserialize_embedding(ps_obj.embedding)
+                if ps_vec is None:
+                    ps_vec = embed(f"{ps_obj.title}. {ps_obj.description}")
+                sim = cosine_similarity(sub_vec, ps_vec)
+                if sim > best_score:
+                    best_score = sim
+                    best_ps = ps_obj
+
+        # Persist the identified PS
+        if best_ps is not None and best_ps.id != sub.problem_statement_id:
+            sub.problem_statement_id = best_ps.id
+            db.flush()
+
+    # 4. Compute relevance score against the identified problem statement
+    effective_ps = best_ps if best_ps is not None else sub.problem_statement
+    ps_title = effective_ps.title if effective_ps else "General Hackathon"
+    ps_desc = effective_ps.description if effective_ps else ""
+    ps_emb = effective_ps.embedding if effective_ps else None
 
     sub.relevance_score = compute_relevance_score(
         problem_title=ps_title,
