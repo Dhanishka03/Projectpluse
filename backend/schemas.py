@@ -53,9 +53,10 @@ class IssueResponse(CamelModel):
     """Matches the Issue TypeScript interface in FRONTEND.md §5."""
     id: str
     claim_id: str
-    type: Literal["overstated", "not_verified"]
+    type: Literal["overstated", "not_verified", "security", "missing_docs"]
     title: str
     description: str
+    severity: Literal["low", "medium", "high"] = "medium"
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +145,9 @@ class SubmissionResponse(CamelModel):
     claims_verified_count: int
     claims_total_count: int
     issues_count: int
+    # Requirement coverage (new Task A fields)
+    requirements_met: int = 0
+    requirements_total: int = 0
     status: Literal["verified", "review", "failed"]
     failure_reason: Optional[str] = None
     claims: list[ClaimResponse] = []

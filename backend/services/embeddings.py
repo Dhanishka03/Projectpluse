@@ -6,6 +6,8 @@ Provides:
   - embed(text: str) -> np.ndarray
   - cosine_similarity(a, b) -> float (0.0 to 1.0)
   - compute_relevance_score(...) -> int (0 to 100)
+      Formula: 60% weighted requirement coverage + 40% semantic similarity.
+      This creates meaningful score separation between high/partial/low repos.
   - serialize_embedding / deserialize_embedding for SQLite BLOB storage
 """
 
@@ -98,11 +100,28 @@ def compute_relevance_score(
     readme_text: str,
     claims: list[str],
     saved_problem_embedding: bytes | None = None,
+    scored_requirements: list[dict] | None = None,
 ) -> int:
     """
-    Computes a 0–100 integer relevance score comparing a submission (README + claims)
-    against a problem statement.
+    Computes a 0–100 integer relevance score.
+
+    Formula (Task A):
+      relevance = 0.60 * coverage_score + 0.40 * semantic_score
+
+    coverage_score (0–100):
+      Weighted average of per-requirement scores (1.0 = met, 0.5 = partial, 0.0 = missing),
+      weighted by each requirement's importance weight.
+      Falls back to keyword-overlap ratio when no scored requirements are provided.
+
+    semantic_score (0–100):
+      Cosine similarity between the problem-statement embedding and the
+      submission README+claims embedding, scaled to 0–100.
+
+    Args:
+      scored_requirements: list returned by llm_client.score_requirements_coverage().
+        Each item must have keys 'score' (0.0–1.0) and 'weight' (float).
     """
+    # ── 1. Semantic similarity (40%) ────────────────────────────────────────
     if saved_problem_embedding:
         prob_vec = deserialize_embedding(saved_problem_embedding)
     else:
@@ -110,14 +129,38 @@ def compute_relevance_score(
         prob_vec = embed(prob_text)
 
     if prob_vec is None:
-        return 50
+        semantic_score = 50.0
+    else:
+        claims_text = ". ".join(claims[:6])
+        sub_summary = f"{readme_text[:1200]}. {claims_text}"
+        sub_vec = embed(sub_summary)
+        sim = cosine_similarity(prob_vec, sub_vec)
+        semantic_score = sim * 100.0
 
-    # Build submission summary: first 1000 chars of README + claims
-    claims_text = ". ".join(claims[:6])
-    sub_summary = f"{readme_text[:1200]}. {claims_text}"
-    sub_vec = embed(sub_summary)
+    # ── 2. Requirement coverage (60%) ───────────────────────────────────────
+    if scored_requirements:
+        total_weight = sum(r.get("weight", 1.0) for r in scored_requirements)
+        if total_weight > 0:
+            weighted_sum = sum(
+                r.get("score", 0.0) * r.get("weight", 1.0)
+                for r in scored_requirements
+            )
+            coverage_score = (weighted_sum / total_weight) * 100.0
+        else:
+            coverage_score = 0.0
+    else:
+        # Keyword-overlap fallback: count claim keywords appearing in PS description
+        ps_lower = f"{problem_title} {problem_description}".lower()
+        all_claim_words = re.findall(r"[a-z]{3,}", " ".join(claims).lower())
+        stopwords = {"the", "a", "an", "of", "to", "for", "with", "and", "or", "in", "on",
+                     "that", "this", "it", "is", "are", "was", "be", "has", "have"}
+        meaningful = [w for w in all_claim_words if w not in stopwords]
+        if meaningful:
+            hits = sum(1 for w in meaningful if w in ps_lower)
+            coverage_score = min(100.0, (hits / len(meaningful)) * 200.0)  # *2 to boost signal
+        else:
+            coverage_score = semantic_score  # pure semantic fallback
 
-    sim = cosine_similarity(prob_vec, sub_vec)
-    # Scale from cosine similarity (typically ~0.2 to 0.8) to realistic 0-100 range
-    score = int(round(sim * 100))
-    return max(0, min(100, score))
+    # ── 3. Weighted combination ──────────────────────────────────────────────
+    final = 0.60 * coverage_score + 0.40 * semantic_score
+    return max(0, min(100, int(round(final))))

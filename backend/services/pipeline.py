@@ -24,7 +24,12 @@ from models import Claim, Evidence, Hackathon, Issue, ProblemStatement, Submissi
 from services.embeddings import compute_relevance_score, cosine_similarity, deserialize_embedding, embed
 from services.evidence_search import search_evidence_for_claim
 from services.github_client import fetch_repository_bundle
-from services.llm_client import extract_claims, identify_problem_statement
+from services.llm_client import (
+    decompose_problem_requirements,
+    extract_claims,
+    identify_problem_statement,
+    score_requirements_coverage,
+)
 from services.verification import verify_claim
 
 # In-memory progress tracker keyed by hackathon_id
@@ -135,18 +140,40 @@ def analyze_submission(submission_id: str, db: Session) -> None:
             sub.problem_statement_id = best_ps.id
             db.flush()
 
-    # 4. Compute relevance score against the identified problem statement
+    # Resolve effective problem statement and its attributes
     effective_ps = best_ps if best_ps is not None else sub.problem_statement
     ps_title = effective_ps.title if effective_ps else "General Hackathon"
     ps_desc = effective_ps.description if effective_ps else ""
     ps_emb = effective_ps.embedding if effective_ps else None
 
+    # 4. Decompose problem statement into discrete requirements and score coverage
+    scored_requirements: list[dict] = []
+    if effective_ps:
+        requirements = decompose_problem_requirements(
+            problem_title=ps_title,
+            problem_description=ps_desc,
+        )
+        scored_requirements = score_requirements_coverage(
+            requirements=requirements,
+            readme_text=bundle.readme_text,
+            file_paths=bundle.file_paths,
+            manifest_contents=bundle.manifest_contents,
+        )
+
+    # Compute relevance score using 60% requirement coverage + 40% semantic similarity
     sub.relevance_score = compute_relevance_score(
         problem_title=ps_title,
         problem_description=ps_desc,
         readme_text=bundle.readme_text,
         claims=extracted_claim_strings,
         saved_problem_embedding=ps_emb,
+        scored_requirements=scored_requirements,
+    )
+
+    # Persist requirement coverage counts
+    sub.requirements_total = len(scored_requirements)
+    sub.requirements_met = sum(
+        1 for r in scored_requirements if r.get("status") == "met"
     )
 
     # Clear prior claims/evidence/issues if re-analyzing
@@ -191,12 +218,23 @@ def analyze_submission(submission_id: str, db: Session) -> None:
 
         # Add issue if generated
         if res.issue:
+            # Determine severity: not_verified claims on high-weight requirements
+            # are "high", overstated are "medium", otherwise "low"
+            issue_type = res.issue["type"]
+            if issue_type == "not_verified":
+                severity = "high"
+            elif issue_type == "overstated":
+                severity = "medium"
+            else:
+                severity = "low"
+
             issue_record = Issue(
                 submission_id=sub.id,
                 claim_id=claim_record.id,
-                type=res.issue["type"],
+                type=issue_type,
                 title=res.issue["title"],
                 description=res.issue["description"],
+                severity=severity,
             )
             db.add(issue_record)
             issues_list.append(issue_record)

@@ -58,6 +58,7 @@ def build_submission_response(sub: Submission) -> SubmissionResponse:
             type=iss.type,
             title=iss.title,
             description=iss.description,
+            severity=getattr(iss, "severity", "medium"),
         )
         for iss in sub.issues
     ]
@@ -72,6 +73,8 @@ def build_submission_response(sub: Submission) -> SubmissionResponse:
         claims_verified_count=sub.claims_verified_count,
         claims_total_count=sub.claims_total_count,
         issues_count=sub.issues_count,
+        requirements_met=getattr(sub, "requirements_met", 0),
+        requirements_total=getattr(sub, "requirements_total", 0),
         status=sub.status,
         failure_reason=sub.failure_reason,
         claims=claims_out,

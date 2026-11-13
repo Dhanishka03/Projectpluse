@@ -94,6 +94,9 @@ class Submission(Base):
     claims_verified_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     claims_total_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     issues_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Requirement coverage: how many PS requirements the submission meets
+    requirements_met: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    requirements_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # "verified" | "review" | "failed"
     status: Mapped[str] = mapped_column(String, nullable=False, default="review")
     failure_reason: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -161,10 +164,12 @@ class Issue(Base):
     claim_id: Mapped[str] = mapped_column(
         String, ForeignKey("claims.id", ondelete="CASCADE"), nullable=False
     )
-    # "overstated" | "not_verified"
+    # "overstated" | "not_verified" | "security" | "missing_docs"
     type: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    # "low" | "medium" | "high" (severity of the issue for judge triage)
+    severity: Mapped[str] = mapped_column(String, nullable=False, default="medium")
 
     submission: Mapped["Submission"] = relationship("Submission", back_populates="issues")
     claim: Mapped["Claim"] = relationship("Claim", back_populates="issues")

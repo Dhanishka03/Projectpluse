@@ -2,9 +2,13 @@
 evidence_search.py — Multi-layer code and dependency evidence search.
 
 Searches:
-  1. File and directory names in the repository tree for matching keywords.
-  2. Dependency manifest contents (requirements.txt, package.json, etc.) for related packages.
-  3. File contents (grep-style, case-insensitive) for keyword occurrences and line numbers.
+  1. File and directory names in the full repository tree for matching keywords.
+  2. Dependency manifest contents (requirements.txt, package.json, pom.xml,
+     pubspec.yaml, build.gradle, etc.) for related packages.
+  3. File contents (grep-style, case-insensitive) for keyword occurrences —
+     searches ALL code/config/notebook files across ALL subdirectories,
+     NOT just the repo root or .py files.
+  4. Jupyter notebooks (.ipynb) — extracts cell source text before matching.
 
 Returns a list of candidate evidence dicts matching the Evidence shape:
   {
@@ -16,6 +20,7 @@ Returns a list of candidate evidence dicts matching the Evidence shape:
   }
 """
 
+import json
 import re
 from typing import Any, Optional
 from services.github_client import RepoBundle, fetch_raw_file_content
@@ -152,15 +157,53 @@ def search_filename_matches(
     return evidence_list[:5]
 
 
+# Source/config file extensions to include in deep content search.
+# Covers Python, JS/TS, Java, Go, Rust, C/C++, notebooks, YAML, TOML, config, and Markdown.
+_SOURCE_EXTENSIONS = (
+    ".py", ".ipynb",
+    ".ts", ".tsx", ".js", ".jsx",
+    ".java", ".go", ".rs", ".c", ".cpp", ".h",
+    ".yml", ".yaml", ".toml", ".cfg", ".ini",
+    ".md", ".txt",
+    ".dart", ".kt", ".swift", ".rb",
+)
+
+# Paths containing these strings are excluded from deep content search.
+_EXCLUDED_DIRS = ("node_modules", "vendor", "dist", "build", ".git", "__pycache__", ".venv", "venv")
+
+
+def _extract_notebook_text(raw_json: str) -> str:
+    """
+    Extracts all cell source text from a Jupyter notebook JSON,
+    returning a single concatenated string for keyword matching.
+    """
+    try:
+        nb = json.loads(raw_json)
+        lines: list[str] = []
+        for cell in nb.get("cells", []):
+            src = cell.get("source", [])
+            if isinstance(src, list):
+                lines.extend(src)
+            elif isinstance(src, str):
+                lines.append(src)
+        return "\n".join(lines)
+    except Exception:
+        return raw_json  # fall back to raw text if JSON parsing fails
+
+
 def search_file_contents_for_claim(
     bundle: RepoBundle,
     candidate_files: list[str],
     keywords: list[str],
 ) -> list[dict[str, Any]]:
-    """Searches raw contents of candidate files for keyword usage."""
+    """Searches raw contents of candidate files for keyword usage.
+
+    Handles Jupyter notebooks by extracting cell source text.
+    Caps at 12 candidate files and 6 total evidence items.
+    """
     evidence_list: list[dict[str, Any]] = []
 
-    for file_path in candidate_files[:6]:
+    for file_path in candidate_files[:12]:  # raised from 6 to 12
         # Fetch file content if not already cached
         content = bundle.cached_files.get(file_path)
         if not content:
@@ -171,12 +214,22 @@ def search_file_contents_for_claim(
         if not content:
             continue
 
-        lines = content.splitlines()
+        # For notebooks, extract cell sources before keyword matching
+        if file_path.endswith(".ipynb"):
+            searchable = _extract_notebook_text(content)
+        else:
+            searchable = content
+
+        lines = searchable.splitlines()
         for line_idx, line in enumerate(lines, start=1):
             line_lower = line.lower()
+            stripped = line.strip()
+            # Skip comment-only lines
+            if stripped.startswith(("//", "#", "--", "/*")):
+                continue
             for kw in keywords:
-                if len(kw) >= 3 and kw in line_lower and not line.strip().startswith("//") and not line.strip().startswith("#"):
-                    snippet = line.strip()[:80]
+                if len(kw) >= 3 and kw in line_lower:
+                    snippet = stripped[:80]
                     evidence_list.append({
                         "file": file_path,
                         "line": line_idx,
@@ -186,7 +239,7 @@ def search_file_contents_for_claim(
                         "source": "keyword",
                     })
                     break  # one match per line is sufficient
-            if len(evidence_list) >= 4:
+            if len(evidence_list) >= 6:  # raised from 4 to 6
                 break
 
     return evidence_list
@@ -197,8 +250,14 @@ def search_evidence_for_claim(
     claim: str,
 ) -> list[dict[str, Any]]:
     """
-    Orchestrates evidence search for a given claim across repo tree,
-    manifests, and code files.
+    Orchestrates evidence search for a given claim across the repo tree,
+    manifests, and code/config/notebook files.
+
+    Search order:
+      1. Dependency manifests
+      2. File name / path matches
+      3. Deep content search across ALL source/config/notebook files in ALL subdirs
+         (not limited to root or .py files)
     """
     keywords = extract_keywords_from_claim(claim)
     if not keywords:
@@ -213,25 +272,41 @@ def search_evidence_for_claim(
     # 1. Search dependencies
     dep_evidence = search_manifest_dependencies(bundle.manifest_contents, keywords)
 
-    # 2. Search file tree
+    # 2. Search file tree for path/filename matches
     filename_evidence = search_filename_matches(bundle.file_paths, keywords)
 
-    # 3. Deep search candidate code files
-    candidate_files = [e["file"] for e in filename_evidence]
-    # If no filename matched, pick relevant source files (e.g. .py, .ts, .js, .go, .rs files)
-    if not candidate_files:
-        src_files = [
-            p for p in bundle.file_paths
-            if any(p.endswith(ext) for ext in [".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java"])
-            and not any(ignored in p.lower() for ignored in ["test", "dist", "build", "node_modules", "vendor"])
-        ]
-        candidate_files = src_files[:5]
+    # 3. Deep content search — scan ALL relevant source files in ALL subdirectories.
+    #    Priority: files whose names already matched (highest signal), then all
+    #    source/config/notebook files found in the repo tree.
+    candidate_files: list[str] = [e["file"] for e in filename_evidence]
+
+    # Build broader candidate pool from ALL source/config/notebook files (any subdir)
+    broader_src = [
+        p for p in bundle.file_paths
+        if any(p.endswith(ext) for ext in _SOURCE_EXTENSIONS)
+        and not any(excl in p.lower() for excl in _EXCLUDED_DIRS)
+    ]
+
+    # Sort by keyword proximity (files whose name contains a keyword come first)
+    def _relevance_key(path: str) -> int:
+        path_lower = path.lower()
+        return -sum(1 for kw in keywords if kw in path_lower)
+
+    broader_src.sort(key=_relevance_key)
+
+    # Merge without duplicates: named matches first, then broader pool
+    seen_paths = set(candidate_files)
+    for p in broader_src:
+        if p not in seen_paths:
+            candidate_files.append(p)
+            seen_paths.add(p)
+        if len(candidate_files) >= 20:
+            break
 
     code_evidence = search_file_contents_for_claim(bundle, candidate_files, keywords)
 
-    # Combine found evidence
+    # Combine: prioritize line-level code evidence, then dependency, then filename
     found_evidence: list[dict[str, Any]] = []
-    # Prioritize line-specific code evidence first, then dependency evidence, then filename evidence
     found_evidence.extend(code_evidence)
     found_evidence.extend(dep_evidence)
     if not code_evidence:
